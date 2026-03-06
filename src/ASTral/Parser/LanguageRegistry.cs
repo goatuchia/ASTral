@@ -575,7 +575,13 @@ public static class LanguageRegistry
         if (string.IsNullOrEmpty(raw))
             return;
 
-        foreach (var token in raw.Split(','))
+        ApplyExtraExtensions(raw);
+    }
+
+    /// <summary>Apply extra extension mappings from a comma-separated string (e.g. ".vue:javascript,.svelte:javascript").</summary>
+    public static void ApplyExtraExtensions(string mappings)
+    {
+        foreach (var token in mappings.Split(','))
         {
             var trimmed = token.Trim();
             if (string.IsNullOrEmpty(trimmed))
