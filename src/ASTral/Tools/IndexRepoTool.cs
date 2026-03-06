@@ -326,7 +326,6 @@ public static class IndexRepoTool
         return await response.Content.ReadAsStringAsync();
     }
 
-
     private static (List<string> Files, bool Truncated) DiscoverSourceFiles(
         List<TreeEntry> treeEntries,
         string? gitignoreContent,
@@ -364,13 +363,16 @@ public static class IndexRepoTool
 
         if (truncated)
         {
-            files.Sort((a, b) => ToolUtils.PriorityKey(a).CompareTo(ToolUtils.PriorityKey(b)));
-            files = files.Take(resolvedMax).ToList();
+            files = files
+                .Select(f => (File: f, Key: ToolUtils.PriorityKey(f)))
+                .OrderBy(x => x.Key)
+                .Select(x => x.File)
+                .Take(resolvedMax)
+                .ToList();
         }
 
         return (files, truncated);
     }
-
 
     private static async Task<Dictionary<string, string>> FetchAllFiles(
         HttpClient client, string owner, string repo, List<string> paths)
