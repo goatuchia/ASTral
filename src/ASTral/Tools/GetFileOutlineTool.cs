@@ -5,11 +5,13 @@ using ASTral.Models;
 using ASTral.Storage;
 using ModelContextProtocol.Server;
 
+using static ASTral.Models.JsonElementHelpers;
+
 namespace ASTral.Tools;
 
 /// <summary>
-/// MCP tool that returns a hierarchical outline of symbols in a file.
-/// Port of Python tools/get_file_outline.py.
+/// MCP tool that returns a hierarchical outline of all symbols in a file,
+/// with signatures, summaries, and parent-child relationships.
 /// </summary>
 [McpServerToolType]
 public static class GetFileOutlineTool
@@ -88,8 +90,7 @@ public static class GetFileOutlineTool
             // Ignore file access errors
         }
 
-        var responseBytes = fileSymbols.Sum(s =>
-            s.TryGetValue("byte_length", out var bl) ? bl.GetInt32() : 0);
+        var responseBytes = fileSymbols.Sum(s => GetInt(s, "byte_length"));
 
         var tokensSaved = TokenTracker.EstimateSavings(rawBytes, responseBytes);
         var totalSaved = tracker.RecordSaving(tokensSaved);
@@ -137,10 +138,10 @@ public static class GetFileOutlineTool
             Parent = d.TryGetValue("parent", out var p) && p.ValueKind == JsonValueKind.String
                 ? p.GetString()
                 : null,
-            Line = d.TryGetValue("line", out var ln) ? ln.GetInt32() : 0,
-            EndLine = d.TryGetValue("end_line", out var el) ? el.GetInt32() : 0,
-            ByteOffset = d.TryGetValue("byte_offset", out var bo) ? bo.GetInt32() : 0,
-            ByteLength = d.TryGetValue("byte_length", out var bl) ? bl.GetInt32() : 0,
+            Line = GetInt(d, "line"),
+            EndLine = GetInt(d, "end_line"),
+            ByteOffset = GetInt(d, "byte_offset"),
+            ByteLength = GetInt(d, "byte_length"),
             ContentHash = GetString(d, "content_hash"),
         };
     }
@@ -165,25 +166,4 @@ public static class GetFileOutlineTool
         return result;
     }
 
-    private static string GetString(Dictionary<string, JsonElement> d, string key)
-    {
-        return d.TryGetValue(key, out var elem) && elem.ValueKind == JsonValueKind.String
-            ? elem.GetString() ?? ""
-            : "";
-    }
-
-    private static List<string> GetStringList(Dictionary<string, JsonElement> d, string key)
-    {
-        if (!d.TryGetValue(key, out var elem) || elem.ValueKind != JsonValueKind.Array)
-            return [];
-
-        var result = new List<string>();
-        foreach (var item in elem.EnumerateArray())
-        {
-            if (item.ValueKind == JsonValueKind.String)
-                result.Add(item.GetString() ?? "");
-        }
-
-        return result;
-    }
 }

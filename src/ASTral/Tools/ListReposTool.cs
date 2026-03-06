@@ -6,6 +6,9 @@ using ASTral.Storage;
 
 namespace ASTral.Tools;
 
+/// <summary>
+/// MCP tool that lists all indexed repositories with metadata.
+/// </summary>
 [McpServerToolType]
 public static class ListReposTool
 {

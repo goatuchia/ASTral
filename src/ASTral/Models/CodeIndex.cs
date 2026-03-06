@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using static ASTral.Models.JsonElementHelpers;
+
 namespace ASTral.Models;
 
 /// <summary>
@@ -65,9 +67,9 @@ public sealed class CodeIndex
         foreach (var sym in Symbols)
         {
             // Apply filters
-            if (kind is not null && GetStringValue(sym, "kind") != kind)
+            if (kind is not null && GetString(sym, "kind") != kind)
                 continue;
-            if (filePattern is not null && !MatchPattern(GetStringValue(sym, "file"), filePattern))
+            if (filePattern is not null && !MatchPattern(GetString(sym, "file"), filePattern))
                 continue;
 
             var score = ScoreSymbol(sym, queryLower, queryWords);
@@ -96,7 +98,7 @@ public sealed class CodeIndex
         var score = 0;
 
         // 1. Exact name match (highest weight)
-        var nameLower = GetStringValue(sym, "name").ToLowerInvariant();
+        var nameLower = GetString(sym, "name").ToLowerInvariant();
         if (queryLower == nameLower)
             score += 20;
         else if (nameLower.Contains(queryLower, StringComparison.Ordinal))
@@ -110,7 +112,7 @@ public sealed class CodeIndex
         }
 
         // 3. Signature match
-        var sigLower = GetStringValue(sym, "signature").ToLowerInvariant();
+        var sigLower = GetString(sym, "signature").ToLowerInvariant();
         if (sigLower.Contains(queryLower, StringComparison.Ordinal))
             score += 8;
         foreach (var word in queryWords)
@@ -120,7 +122,7 @@ public sealed class CodeIndex
         }
 
         // 4. Summary match
-        var summaryLower = GetStringValue(sym, "summary").ToLowerInvariant();
+        var summaryLower = GetString(sym, "summary").ToLowerInvariant();
         if (summaryLower.Contains(queryLower, StringComparison.Ordinal))
             score += 5;
         foreach (var word in queryWords)
@@ -130,7 +132,7 @@ public sealed class CodeIndex
         }
 
         // 5. Keyword match
-        var keywords = GetStringListValue(sym, "keywords");
+        var keywords = GetStringList(sym, "keywords");
         var keywordSet = new HashSet<string>(keywords, StringComparer.OrdinalIgnoreCase);
         foreach (var word in queryWords)
         {
@@ -139,7 +141,7 @@ public sealed class CodeIndex
         }
 
         // 6. Docstring match
-        var docLower = GetStringValue(sym, "docstring").ToLowerInvariant();
+        var docLower = GetString(sym, "docstring").ToLowerInvariant();
         foreach (var word in queryWords)
         {
             if (docLower.Contains(word, StringComparison.Ordinal))
@@ -149,36 +151,6 @@ public sealed class CodeIndex
         return score;
     }
 
-    internal static string GetStringValue(Dictionary<string, JsonElement> sym, string key)
-    {
-        return sym.TryGetValue(key, out var elem) && elem.ValueKind == JsonValueKind.String
-            ? elem.GetString() ?? ""
-            : "";
-    }
-
-    internal static int GetIntValue(Dictionary<string, JsonElement> sym, string key)
-    {
-        return sym.TryGetValue(key, out var elem) && elem.ValueKind == JsonValueKind.Number
-            ? elem.GetInt32()
-            : 0;
-    }
-
-    internal static List<string> GetStringListValue(Dictionary<string, JsonElement> sym, string key)
-    {
-        if (!sym.TryGetValue(key, out var elem) || elem.ValueKind != JsonValueKind.Array)
-            return [];
-
-        var result = new List<string>();
-        foreach (var item in elem.EnumerateArray())
-        {
-            if (item.ValueKind == JsonValueKind.String)
-            {
-                result.Add(item.GetString() ?? "");
-            }
-        }
-
-        return result;
-    }
 }
 
 /// <summary>

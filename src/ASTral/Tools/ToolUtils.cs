@@ -5,8 +5,8 @@ using ASTral.Storage;
 namespace ASTral.Tools;
 
 /// <summary>
-/// Shared helpers for tool modules.
-/// Port of Python tools/_utils.py.
+/// Shared helpers for MCP tool modules: repository resolution,
+/// file skip patterns, priority sorting, and JSON serialization.
 /// </summary>
 internal static class ToolUtils
 {

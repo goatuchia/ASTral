@@ -5,8 +5,9 @@ using ASTral.Models;
 namespace ASTral.Parser;
 
 /// <summary>
-/// Generic AST symbol extractor using tree-sitter.
-/// Port of Python parser/extractor.py.
+/// Language-agnostic AST symbol extractor powered by tree-sitter.
+/// Parses source code, walks the syntax tree, and produces <see cref="Symbol"/>
+/// records for functions, classes, methods, constants, and type definitions.
 /// </summary>
 public sealed class SymbolExtractor
 {

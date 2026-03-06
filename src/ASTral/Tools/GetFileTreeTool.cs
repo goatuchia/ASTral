@@ -9,9 +9,8 @@ using ModelContextProtocol.Server;
 namespace ASTral.Tools;
 
 /// <summary>
-/// MCP tool: get_file_tree
-/// Returns a hierarchical file tree for an indexed repository.
-/// Port of Python tools/get_file_tree.py.
+/// MCP tool that returns a hierarchical file tree for an indexed repository,
+/// including per-file language detection, symbol counts, and optional summaries.
 /// </summary>
 [McpServerToolType]
 public static class GetFileTreeTool

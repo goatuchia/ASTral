@@ -4,8 +4,8 @@ namespace ASTral.Storage;
 
 /// <summary>
 /// Persistent token savings tracker.
-/// Records cumulative tokens saved in ~/.code-index/_savings.json.
-/// Port of Python storage/token_tracker.py.
+/// Records cumulative tokens saved in <c>~/.code-index/_savings.json</c>
+/// and estimates cost avoided across supported model tiers.
 /// </summary>
 public sealed class TokenTracker
 {

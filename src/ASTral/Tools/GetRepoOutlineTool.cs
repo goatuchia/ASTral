@@ -7,9 +7,8 @@ using ModelContextProtocol.Server;
 namespace ASTral.Tools;
 
 /// <summary>
-/// MCP tool: get_repo_outline
-/// Returns a high-level overview of an indexed repository.
-/// Port of Python tools/get_repo_outline.py.
+/// MCP tool that returns a high-level overview of an indexed repository,
+/// including directory file counts, symbol kind breakdown, and language statistics.
 /// </summary>
 [McpServerToolType]
 public static class GetRepoOutlineTool

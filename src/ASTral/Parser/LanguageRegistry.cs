@@ -1,8 +1,9 @@
 namespace ASTral.Parser;
 
 /// <summary>
-/// Specification for extracting symbols from a language's AST.
-/// Port of Python parser/languages.py LanguageSpec.
+/// Specification for extracting symbols from a language's tree-sitter AST.
+/// Each supported language defines which node types to extract, how to locate
+/// names, parameters, return types, docstrings, and decorators.
 /// </summary>
 public sealed record LanguageSpec
 {
@@ -44,8 +45,8 @@ public sealed record LanguageSpec
 }
 
 /// <summary>
-/// Language registry with all supported languages and extension mappings.
-/// Port of Python parser/languages.py.
+/// Registry of all supported programming languages, their file-extension mappings,
+/// and tree-sitter extraction specifications.
 /// </summary>
 public static class LanguageRegistry
 {
@@ -570,7 +571,7 @@ public static class LanguageRegistry
     /// <summary>Apply extra extension mappings from environment variable.</summary>
     public static void ApplyExtraExtensions()
     {
-        var raw = Environment.GetEnvironmentVariable("JCODEMUNCH_EXTRA_EXTENSIONS")?.Trim();
+        var raw = Environment.GetEnvironmentVariable("ASTRAL_EXTRA_EXTENSIONS")?.Trim();
         if (string.IsNullOrEmpty(raw))
             return;
 

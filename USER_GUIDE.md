@@ -245,7 +245,7 @@ ASTral contributes an anonymous token savings delta to a live global counter at 
 
 The anonymous install ID is generated once and stored locally in `~/.code-index/_savings.json`.
 
-To disable, set `JCODEMUNCH_SHARE_SAVINGS=0` in your MCP server env:
+To disable, set `ASTRAL_SHARE_SAVINGS=0` in your MCP server env:
 
 ```json
 {
@@ -254,7 +254,7 @@ To disable, set `JCODEMUNCH_SHARE_SAVINGS=0` in your MCP server env:
       "command": "dotnet",
       "args": ["run", "--project", "/path/to/ASTral/src/ASTral"],
       "env": {
-        "JCODEMUNCH_SHARE_SAVINGS": "0"
+        "ASTRAL_SHARE_SAVINGS": "0"
       }
     }
   }

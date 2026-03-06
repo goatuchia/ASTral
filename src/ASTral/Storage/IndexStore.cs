@@ -8,8 +8,8 @@ using ASTral.Models;
 namespace ASTral.Storage;
 
 /// <summary>
-/// Storage for code indexes with byte-offset content retrieval.
-/// Port of Python storage/index_store.py (IndexStore class).
+/// Persistent storage for code indexes with byte-offset content retrieval.
+/// Manages JSON index files and raw source content under a configurable base directory.
 /// </summary>
 public sealed partial class IndexStore
 {

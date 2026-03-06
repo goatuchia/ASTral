@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/ASTral/ASTral.csproj" />
+  <Project Path="tests/ASTral.Tests/ASTral.Tests.csproj" />
+</Solution>

@@ -9,8 +9,8 @@ using ModelContextProtocol.Server;
 namespace ASTral.Tools;
 
 /// <summary>
-/// Full-text search across indexed file contents.
-/// Port of Python tools/search_text.py.
+/// MCP tool that performs full-text search across indexed file contents
+/// with case-insensitive substring matching and optional glob filtering.
 /// </summary>
 [McpServerToolType]
 public static class SearchTextTool

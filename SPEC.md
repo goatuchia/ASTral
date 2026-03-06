@@ -223,7 +223,7 @@ Recursive directory walk with the full security pipeline, using MAB.DotIgnore fo
 4. **Secret detection** — `.env`, `*.pem`, `*.key`, `*.p12`, credentials files excluded
 5. **Binary detection** — extension-based + null-byte content sniffing
 6. **Size limit** — 500 KB per file (configurable)
-7. **File count limit** — 10,000 files max (configurable via `JCODEMUNCH_MAX_INDEX_FILES`), prioritized: `src/` > `lib/` > `pkg/` > `cmd/` > `internal/` > remainder
+7. **File count limit** — 10,000 files max (configurable via `ASTRAL_MAX_INDEX_FILES`), prioritized: `src/` > `lib/` > `pkg/` > `cmd/` > `internal/` > remainder
 
 ---
 
@@ -287,6 +287,6 @@ All errors return:
 | `GITHUB_TOKEN`                 | GitHub API authentication (higher limits, private repos) | No       |
 | `ANTHROPIC_API_KEY`            | AI summarization via Claude Haiku                        | No       |
 | `CODE_INDEX_PATH`              | Custom storage path (default: `~/.code-index/`)          | No       |
-| `JCODEMUNCH_LOG_LEVEL`         | Log verbosity (DEBUG, INFO, WARNING, ERROR)              | No       |
-| `JCODEMUNCH_MAX_INDEX_FILES`   | Maximum files to index (default: 10,000)                 | No       |
-| `JCODEMUNCH_EXTRA_EXTENSIONS`  | Custom extension-to-language mappings                    | No       |
+| `ASTRAL_LOG_LEVEL`         | Log verbosity (DEBUG, INFO, WARNING, ERROR)              | No       |
+| `ASTRAL_MAX_INDEX_FILES`   | Maximum files to index (default: 10,000)                 | No       |
+| `ASTRAL_EXTRA_EXTENSIONS`  | Custom extension-to-language mappings                    | No       |

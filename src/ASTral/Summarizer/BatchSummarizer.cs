@@ -5,8 +5,12 @@ using ASTral.Models;
 namespace ASTral.Summarizer;
 
 /// <summary>
-/// Three-tier summarization: docstring > AI (Claude Haiku) > signature fallback.
-/// Port of Python summarizer/batch_summarize.py.
+/// Three-tier symbol summarization pipeline.
+/// <list type="number">
+///   <item><description>Tier 1 — Docstring extraction (free, instant).</description></item>
+///   <item><description>Tier 2 — AI batch summarization via Claude Haiku (requires <c>ANTHROPIC_API_KEY</c>).</description></item>
+///   <item><description>Tier 3 — Signature fallback (always available).</description></item>
+/// </list>
 /// </summary>
 public sealed class BatchSummarizer
 {

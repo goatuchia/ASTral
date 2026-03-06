@@ -5,8 +5,14 @@ using ASTral.Models;
 using ASTral.Storage;
 using ModelContextProtocol.Server;
 
+using static ASTral.Models.JsonElementHelpers;
+
 namespace ASTral.Tools;
 
+/// <summary>
+/// MCP tool that searches for symbols matching a query with weighted scoring,
+/// supporting filters by kind, file pattern, and language.
+/// </summary>
 [McpServerToolType]
 public static class SearchSymbolsTool
 {
@@ -45,7 +51,7 @@ public static class SearchSymbolsTool
         if (language is not null)
         {
             results = results
-                .Where(s => CodeIndex.GetStringValue(s, "language") == language)
+                .Where(s => GetString(s, "language") == language)
                 .ToList();
         }
 
@@ -65,18 +71,18 @@ public static class SearchSymbolsTool
             var score = CodeIndex.ScoreSymbol(sym, queryLower, queryWords);
             scoredResults.Add(new
             {
-                id = CodeIndex.GetStringValue(sym, "id"),
-                kind = CodeIndex.GetStringValue(sym, "kind"),
-                name = CodeIndex.GetStringValue(sym, "name"),
-                file = CodeIndex.GetStringValue(sym, "file"),
-                line = CodeIndex.GetIntValue(sym, "line"),
-                signature = CodeIndex.GetStringValue(sym, "signature"),
-                summary = CodeIndex.GetStringValue(sym, "summary"),
+                id = GetString(sym, "id"),
+                kind = GetString(sym, "kind"),
+                name = GetString(sym, "name"),
+                file = GetString(sym, "file"),
+                line = GetInt(sym, "line"),
+                signature = GetString(sym, "signature"),
+                summary = GetString(sym, "summary"),
                 score,
             });
 
             // Token savings accounting
-            var file = CodeIndex.GetStringValue(sym, "file");
+            var file = GetString(sym, "file");
             if (seenFiles.Add(file))
             {
                 try
@@ -89,7 +95,7 @@ public static class SearchSymbolsTool
                 }
             }
 
-            responseBytes += CodeIndex.GetIntValue(sym, "byte_length");
+            responseBytes += GetInt(sym, "byte_length");
         }
 
         var tokensSaved = TokenTracker.EstimateSavings(rawBytes, responseBytes);

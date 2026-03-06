@@ -12,7 +12,7 @@ namespace ASTral.Tools;
 
 /// <summary>
 /// MCP tool that indexes a local folder containing source code.
-/// Port of Python tools/index_folder.py.
+/// Supports full and incremental indexing with comprehensive security filtering.
 /// </summary>
 [McpServerToolType]
 public static class IndexFolderTool

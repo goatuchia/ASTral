@@ -3,14 +3,17 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using ASTral.Models;
 using ASTral.Storage;
 using ModelContextProtocol.Server;
+
+using static ASTral.Models.JsonElementHelpers;
 
 namespace ASTral.Tools;
 
 /// <summary>
-/// Get the full source code of a specific symbol.
-/// Port of Python tools/get_symbol.py — get_symbol function.
+/// MCP tool that retrieves the full source code of a specific symbol by ID,
+/// with optional context lines and content-hash verification.
 /// </summary>
 [McpServerToolType]
 public static class GetSymbolTool
@@ -148,31 +151,4 @@ public static class GetSymbolTool
         return JsonSerializer.Serialize(result);
     }
 
-    private static string GetString(Dictionary<string, JsonElement> sym, string key)
-    {
-        return sym.TryGetValue(key, out var elem) && elem.ValueKind == JsonValueKind.String
-            ? elem.GetString() ?? ""
-            : "";
-    }
-
-    private static int GetInt(Dictionary<string, JsonElement> sym, string key)
-    {
-        return sym.TryGetValue(key, out var elem) && elem.ValueKind == JsonValueKind.Number
-            ? elem.GetInt32()
-            : 0;
-    }
-
-    private static List<string> GetStringList(Dictionary<string, JsonElement> sym, string key)
-    {
-        if (!sym.TryGetValue(key, out var elem) || elem.ValueKind != JsonValueKind.Array)
-            return [];
-
-        var result = new List<string>();
-        foreach (var item in elem.EnumerateArray())
-        {
-            if (item.ValueKind == JsonValueKind.String)
-                result.Add(item.GetString() ?? "");
-        }
-        return result;
-    }
 }

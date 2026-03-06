@@ -3,8 +3,8 @@ using ASTral.Models;
 namespace ASTral.Summarizer;
 
 /// <summary>
-/// Generate per-file heuristic summaries from symbol information.
-/// Port of Python summarizer/file_summarize.py.
+/// Generates per-file heuristic summaries from extracted symbol information.
+/// Produces human-readable one-liners like "Defines UserService class (5 methods)".
 /// </summary>
 public static class FileSummarizer
 {

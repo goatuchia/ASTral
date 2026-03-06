@@ -109,12 +109,12 @@ This inspection process helps identify the correct `SymbolNodeTypes`, `NameField
 
 ## Configuration
 
-### `JCODEMUNCH_EXTRA_EXTENSIONS`
+### `ASTRAL_EXTRA_EXTENSIONS`
 
 Map additional file extensions to languages at startup without modifying source:
 
 ```
-JCODEMUNCH_EXTRA_EXTENSIONS=".cgi:perl,.psgi:perl,.mjs:javascript"
+ASTRAL_EXTRA_EXTENSIONS=".cgi:perl,.psgi:perl,.mjs:javascript"
 ```
 
 - Comma-separated `.ext:lang` pairs

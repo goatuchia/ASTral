@@ -11,8 +11,8 @@ using ModelContextProtocol.Server;
 namespace ASTral.Tools;
 
 /// <summary>
-/// MCP tool to index a GitHub repository's source code.
-/// Port of Python tools/index_repo.py.
+/// MCP tool that indexes a GitHub repository's source code via the GitHub API.
+/// Supports full and incremental indexing with concurrent file downloads.
 /// </summary>
 [McpServerToolType]
 public static class IndexRepoTool

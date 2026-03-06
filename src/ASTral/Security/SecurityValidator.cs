@@ -2,13 +2,14 @@ namespace ASTral.Security;
 
 /// <summary>
 /// Security utilities for path validation, secret detection, and binary filtering.
-/// Port of Python security.py.
+/// Prevents path traversal attacks, symlink escapes, and accidental indexing of
+/// sensitive or binary files.
 /// </summary>
 public static class SecurityValidator
 {
     public const int DefaultMaxFileSize = 500 * 1024; // 500KB
     public const int DefaultMaxIndexFiles = 10_000;
-    public const string MaxIndexFilesEnvVar = "JCODEMUNCH_MAX_INDEX_FILES";
+    public const string MaxIndexFilesEnvVar = "ASTRAL_MAX_INDEX_FILES";
 
     // --- Secret File Detection ---
 
