@@ -22,6 +22,8 @@ public class LanguageRegistryTests
     [InlineData(".pl", "perl")]
     [InlineData(".php", "php")]
     [InlineData(".dart", "dart")]
+    [InlineData(".kt", "kotlin")]
+    [InlineData(".kts", "kotlin")]
     public void GetLanguageForFile_MapsExtensionToLanguage(string extension, string expectedLanguage)
     {
         var result = LanguageRegistry.GetLanguageForFile($"file{extension}");
@@ -44,7 +46,7 @@ public class LanguageRegistryTests
     public void GetAllLanguages_ReturnsAtLeast15Languages()
     {
         var languages = LanguageRegistry.GetAllLanguages();
-        Assert.True(languages.Count >= 15, $"Expected at least 15 languages, got {languages.Count}");
+        Assert.True(languages.Count >= 16, $"Expected at least 16 languages, got {languages.Count}");
     }
 
     [Fact]
@@ -61,6 +63,7 @@ public class LanguageRegistryTests
         Assert.Contains("csharp", languages);
         Assert.Contains("ruby", languages);
         Assert.Contains("perl", languages);
+        Assert.Contains("kotlin", languages);
     }
 
     [Fact]

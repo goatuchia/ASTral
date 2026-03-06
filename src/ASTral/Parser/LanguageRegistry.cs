@@ -80,6 +80,8 @@ public static class LanguageRegistry
         [".pl"] = "perl",
         [".pm"] = "perl",
         [".t"] = "perl",
+        [".kt"] = "kotlin",
+        [".kts"] = "kotlin",
     };
 
     // --- Language Specifications ---
@@ -534,6 +536,40 @@ public static class LanguageRegistry
         TypePatterns = [],
     };
 
+    public static readonly LanguageSpec Kotlin = new()
+    {
+        TsLanguage = "kotlin",
+        SymbolNodeTypes = new()
+        {
+            ["function_declaration"] = "function",
+            ["class_declaration"] = "class",
+            ["object_declaration"] = "class",
+            ["interface_declaration"] = "type",
+            ["type_alias"] = "type",
+        },
+        NameFields = new()
+        {
+            ["function_declaration"] = "name",
+            ["class_declaration"] = "name",
+            ["object_declaration"] = "name",
+            ["interface_declaration"] = "name",
+            ["type_alias"] = "name",
+        },
+        ParamFields = new()
+        {
+            ["function_declaration"] = "parameters",
+        },
+        ReturnTypeFields = new()
+        {
+            ["function_declaration"] = "return_type",
+        },
+        DocstringStrategy = "preceding_comment",
+        DecoratorNodeType = "annotation",
+        ContainerNodeTypes = ["class_declaration", "object_declaration", "interface_declaration"],
+        ConstantPatterns = ["property_declaration"],
+        TypePatterns = ["interface_declaration", "type_alias"],
+    };
+
     /// <summary>All registered language specs keyed by language name.</summary>
     public static readonly Dictionary<string, LanguageSpec> Registry = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -552,6 +588,7 @@ public static class LanguageRegistry
         ["elixir"] = Elixir,
         ["ruby"] = Ruby,
         ["perl"] = Perl,
+        ["kotlin"] = Kotlin,
     };
 
     /// <summary>Get language name for a file based on extension, or null if unsupported.</summary>
