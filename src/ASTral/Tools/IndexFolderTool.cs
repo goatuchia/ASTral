@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Text;
-using System.Text.Json;
 using MAB.DotIgnore;
 using ASTral.Models;
 using ASTral.Parser;
@@ -18,29 +17,6 @@ namespace ASTral.Tools;
 [McpServerToolType]
 public static class IndexFolderTool
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-    };
-
-    /// <summary>File/directory patterns to skip (synced with index_repo).</summary>
-    private static readonly string[] SkipPatterns =
-    [
-        "node_modules/", "vendor/", "venv/", ".venv/", "__pycache__/",
-        "dist/", "build/", ".git/", ".tox/", ".mypy_cache/",
-        "target/",
-        ".gradle/",
-        "test_data/", "testdata/", "fixtures/", "snapshots/",
-        "migrations/",
-        ".min.js", ".min.ts", ".bundle.js",
-        "package-lock.json", "yarn.lock", "go.sum",
-        "generated/", "proto/",
-    ];
-
-    /// <summary>Priority directories for file-limit sorting.</summary>
-    private static readonly string[] PriorityDirs = ["src/", "lib/", "pkg/", "cmd/", "internal/"];
-
     [McpServerTool(Name = "index_folder"), Description("Index a local folder containing source code.")]
     public static async Task<string> IndexFolder(
         IndexStore store,
@@ -59,7 +35,7 @@ public static class IndexFolderTool
                 : path);
 
         if (!Directory.Exists(folderPath))
-            return JsonSerializer.Serialize(new { success = false, error = $"Folder not found: {path}" }, JsonOptions);
+            return ToolUtils.Serialize(new { success = false, error = $"Folder not found: {path}" });
 
         var warnings = new List<string>();
         var maxFiles = SecurityValidator.GetMaxIndexFiles();
@@ -73,7 +49,7 @@ public static class IndexFolderTool
             warnings.AddRange(discoverWarnings);
 
             if (sourceFiles.Count == 0)
-                return JsonSerializer.Serialize(new { success = false, error = "No source files found" }, JsonOptions);
+                return ToolUtils.Serialize(new { success = false, error = "No source files found" });
 
             // Create repo identifier from folder name
             var repoName = new DirectoryInfo(folderPath).Name;
@@ -127,7 +103,7 @@ public static class IndexFolderTool
         }
         catch (Exception ex)
         {
-            return JsonSerializer.Serialize(new { success = false, error = $"Indexing failed: {ex.Message}" }, JsonOptions);
+            return ToolUtils.Serialize(new { success = false, error = $"Indexing failed: {ex.Message}" });
         }
     }
 
@@ -149,7 +125,7 @@ public static class IndexFolderTool
 
         if (changed.Count == 0 && newFiles.Count == 0 && deleted.Count == 0)
         {
-            return JsonSerializer.Serialize(new
+            return ToolUtils.Serialize(new
             {
                 success = true,
                 message = "No changes detected",
@@ -158,7 +134,7 @@ public static class IndexFolderTool
                 changed = 0,
                 @new = 0,
                 deleted = 0,
-            }, JsonOptions);
+            });
         }
 
         var filesToParse = new HashSet<string>(changed);
@@ -194,7 +170,7 @@ public static class IndexFolderTool
         newSymbols = await summarizer.SummarizeSymbols(newSymbols, useAiSummaries);
 
         // Generate file summaries for changed/new files
-        var incrFileSummaries = FileSummarizer.GenerateFileSummaries(GroupSymbolsByFile(newSymbols));
+        var incrFileSummaries = FileSummarizer.GenerateFileSummaries(ToolUtils.GroupSymbolsByFile(newSymbols));
 
         var gitHead = IndexStore.GetGitHead(folderPath) ?? "";
 
@@ -229,7 +205,7 @@ public static class IndexFolderTool
         if (warnings.Count > 0)
             result["warnings"] = warnings;
 
-        return JsonSerializer.Serialize(result, JsonOptions);
+        return ToolUtils.Serialize(result);
     }
 
     // ---- Private: full index ----
@@ -282,13 +258,13 @@ public static class IndexFolderTool
         }
 
         if (allSymbols.Count == 0)
-            return JsonSerializer.Serialize(new { success = false, error = "No symbols extracted from files" }, JsonOptions);
+            return ToolUtils.Serialize(new { success = false, error = "No symbols extracted from files" });
 
         // Generate summaries
         allSymbols = await summarizer.SummarizeSymbols(allSymbols, useAiSummaries);
 
         // Generate file-level summaries
-        var fileSummaries = FileSummarizer.GenerateFileSummaries(GroupSymbolsByFile(allSymbols));
+        var fileSummaries = FileSummarizer.GenerateFileSummaries(ToolUtils.GroupSymbolsByFile(allSymbols));
 
         // Compute file hashes for all current files (including no-symbol files)
         var fileHashes = currentFiles.ToDictionary(
@@ -329,7 +305,7 @@ public static class IndexFolderTool
         if (skipCounts.GetValueOrDefault("file_limit") > 0)
             result["note"] = $"Folder has many files; indexed first {maxFiles}";
 
-        return JsonSerializer.Serialize(result, JsonOptions);
+        return ToolUtils.Serialize(result);
     }
 
     // ---- Private: file discovery ----
@@ -425,7 +401,7 @@ public static class IndexFolderTool
             }
 
             // Skip patterns
-            if (ShouldSkipFile(relPath))
+            if (ToolUtils.ShouldSkipFile(relPath))
             {
                 skipCounts["skip_pattern"]++;
                 continue;
@@ -494,7 +470,7 @@ public static class IndexFolderTool
 
             // Pre-compute relative paths and priority keys to avoid redundant work during sort
             var keyed = files
-                .Select(f => (File: f, Key: PriorityKey(Path.GetRelativePath(root, f).Replace('\\', '/'))))
+                .Select(f => (File: f, Key: ToolUtils.PriorityKey(Path.GetRelativePath(root, f).Replace('\\', '/'))))
                 .OrderBy(x => x.Key)
                 .Select(x => x.File)
                 .Take(maxFiles)
@@ -506,34 +482,6 @@ public static class IndexFolderTool
         return (files, warnings, skipCounts);
     }
 
-    /// <summary>
-    /// Check if a file path matches any skip pattern.
-    /// </summary>
-    private static bool ShouldSkipFile(string relativePath)
-    {
-        var normalized = relativePath.Replace('\\', '/');
-        foreach (var pattern in SkipPatterns)
-        {
-            if (pattern.EndsWith('/'))
-            {
-                // Directory pattern: match only complete path segments
-                if (normalized.StartsWith(pattern, StringComparison.Ordinal)
-                    || normalized.Contains("/" + pattern, StringComparison.Ordinal))
-                    return true;
-            }
-            else
-            {
-                if (normalized.Contains(pattern, StringComparison.Ordinal))
-                    return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Load .gitignore from the folder root if it exists.
-    /// </summary>
     private static IgnoreList? LoadGitignore(string folderPath)
     {
         try
@@ -544,37 +492,5 @@ public static class IndexFolderTool
         {
             return null;
         }
-    }
-
-    /// <summary>
-    /// Group symbols by their source file path.
-    /// </summary>
-    private static Dictionary<string, List<Symbol>> GroupSymbolsByFile(List<Symbol> symbols)
-    {
-        var map = new Dictionary<string, List<Symbol>>();
-        foreach (var s in symbols)
-        {
-            if (!map.TryGetValue(s.File, out var list))
-            {
-                list = [];
-                map[s.File] = list;
-            }
-            list.Add(s);
-        }
-        return map;
-    }
-
-    /// <summary>
-    /// Priority key for file-limit sorting. Lower = higher priority.
-    /// </summary>
-    private static (int DirPriority, int Depth, string Path) PriorityKey(string relPath)
-    {
-        for (var i = 0; i < PriorityDirs.Length; i++)
-        {
-            if (relPath.StartsWith(PriorityDirs[i], StringComparison.Ordinal))
-                return (i, relPath.Count(c => c == '/'), relPath);
-        }
-
-        return (PriorityDirs.Length, relPath.Count(c => c == '/'), relPath);
     }
 }

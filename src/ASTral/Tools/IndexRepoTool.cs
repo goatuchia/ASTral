@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ASTral.Models;
@@ -18,29 +17,8 @@ namespace ASTral.Tools;
 [McpServerToolType]
 public static class IndexRepoTool
 {
-    private static readonly string[] SkipPatterns =
-    [
-        "node_modules/", "vendor/", "venv/", ".venv/", "__pycache__/",
-        "dist/", "build/", ".git/", ".tox/", ".mypy_cache/",
-        "target/", ".gradle/",
-        "test_data/", "testdata/", "fixtures/", "snapshots/",
-        "migrations/",
-        ".min.js", ".min.ts", ".bundle.js",
-        "package-lock.json", "yarn.lock", "go.sum",
-        "generated/", "proto/",
-    ];
-
-    private static readonly string[] PriorityDirs =
-        ["src/", "lib/", "pkg/", "cmd/", "internal/"];
-
     private const int MaxFileSize = 500 * 1024; // 500KB
     private const int ConcurrencyLimit = 10;
-
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-    };
 
     [McpServerTool(Name = "index_repo")]
     [Description("Index a GitHub repository's source code for fast symbol lookup.")]
@@ -60,7 +38,7 @@ public static class IndexRepoTool
         }
         catch (ArgumentException e)
         {
-            return Serialize(new { success = false, error = e.Message });
+            return ToolUtils.Serialize(new { success = false, error = e.Message });
         }
 
         var token = Environment.GetEnvironmentVariable("GITHUB_TOKEN");
@@ -80,9 +58,9 @@ public static class IndexRepoTool
             catch (HttpRequestException e)
             {
                 if (e.StatusCode == System.Net.HttpStatusCode.NotFound)
-                    return Serialize(new { success = false, error = $"Repository not found: {owner}/{repo}" });
+                    return ToolUtils.Serialize(new { success = false, error = $"Repository not found: {owner}/{repo}" });
                 if (e.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                    return Serialize(new { success = false, error = "GitHub API rate limit exceeded. Set GITHUB_TOKEN." });
+                    return ToolUtils.Serialize(new { success = false, error = "GitHub API rate limit exceeded. Set GITHUB_TOKEN." });
                 throw;
             }
 
@@ -93,7 +71,7 @@ public static class IndexRepoTool
             var (sourceFiles, truncated) = DiscoverSourceFiles(treeEntries, gitignoreContent, maxFiles);
 
             if (sourceFiles.Count == 0)
-                return Serialize(new { success = false, error = "No source files found" });
+                return ToolUtils.Serialize(new { success = false, error = "No source files found" });
 
             // Fetch all file contents concurrently
             var currentFiles = await FetchAllFiles(httpClient, owner, repo, sourceFiles);
@@ -105,7 +83,7 @@ public static class IndexRepoTool
 
                 if (changed.Count == 0 && newF.Count == 0 && deleted.Count == 0)
                 {
-                    return Serialize(new
+                    return ToolUtils.Serialize(new
                     {
                         success = true,
                         message = "No changes detected",
@@ -146,7 +124,7 @@ public static class IndexRepoTool
                 newSymbols = await summarizer.SummarizeSymbols(newSymbols, useAiSummaries);
 
                 var incrFileSummaries = FileSummarizer.GenerateFileSummaries(
-                    GroupSymbolsByFile(newSymbols));
+                    ToolUtils.GroupSymbolsByFile(newSymbols));
 
                 var updated = store.IncrementalSave(
                     owner: owner,
@@ -173,7 +151,7 @@ public static class IndexRepoTool
                 if (warnings.Count > 0)
                     incrResult["warnings"] = warnings;
 
-                return Serialize(incrResult);
+                return ToolUtils.Serialize(incrResult);
             }
 
             // Full index path
@@ -207,20 +185,20 @@ public static class IndexRepoTool
             }
 
             if (allSymbols.Count == 0)
-                return Serialize(new { success = false, error = "No symbols extracted" });
+                return ToolUtils.Serialize(new { success = false, error = "No symbols extracted" });
 
             // Generate summaries
             allSymbols = await summarizer.SummarizeSymbols(allSymbols, useAiSummaries);
 
             // Generate file-level summaries
             var fileSummaries = FileSummarizer.GenerateFileSummaries(
-                GroupSymbolsByFile(allSymbols));
+                ToolUtils.GroupSymbolsByFile(allSymbols));
 
             // Compute file hashes for all discovered source files so incremental
             // change detection does not repeatedly report no-symbol files as "new".
             var fileHashes = currentFiles.ToDictionary(
                 kv => kv.Key,
-                kv => ComputeHash(kv.Value));
+                kv => Symbol.ComputeContentHash(Encoding.UTF8.GetBytes(kv.Value)));
 
             var savedIndex = store.SaveIndex(
                 owner: owner,
@@ -250,11 +228,11 @@ public static class IndexRepoTool
             if (truncated)
                 result["warnings"] = warnings.Concat([$"Repository has many files; indexed first {maxFiles}"]).ToList();
 
-            return Serialize(result);
+            return ToolUtils.Serialize(result);
         }
         catch (Exception e)
         {
-            return Serialize(new { success = false, error = $"Indexing failed: {e.Message}" });
+            return ToolUtils.Serialize(new { success = false, error = $"Indexing failed: {e.Message}" });
         }
     }
 
@@ -348,27 +326,6 @@ public static class IndexRepoTool
         return await response.Content.ReadAsStringAsync();
     }
 
-    private static bool ShouldSkipFile(string path)
-    {
-        var normalized = path.Replace('\\', '/');
-        foreach (var pattern in SkipPatterns)
-        {
-            if (pattern.EndsWith('/'))
-            {
-                // Directory pattern: match only complete path segments
-                if (normalized.StartsWith(pattern, StringComparison.Ordinal)
-                    || normalized.Contains("/" + pattern, StringComparison.Ordinal))
-                    return true;
-            }
-            else
-            {
-                if (normalized.Contains(pattern, StringComparison.Ordinal))
-                    return true;
-            }
-        }
-
-        return false;
-    }
 
     private static (List<string> Files, bool Truncated) DiscoverSourceFiles(
         List<TreeEntry> treeEntries,
@@ -389,7 +346,7 @@ public static class IndexRepoTool
 
             if (!LanguageRegistry.LanguageExtensions.ContainsKey(ext))
                 continue;
-            if (ShouldSkipFile(path))
+            if (ToolUtils.ShouldSkipFile(path))
                 continue;
             if (SecurityValidator.IsSecretFile(path))
                 continue;
@@ -407,23 +364,13 @@ public static class IndexRepoTool
 
         if (truncated)
         {
-            files.Sort((a, b) => PriorityKey(a).CompareTo(PriorityKey(b)));
+            files.Sort((a, b) => ToolUtils.PriorityKey(a).CompareTo(ToolUtils.PriorityKey(b)));
             files = files.Take(resolvedMax).ToList();
         }
 
         return (files, truncated);
     }
 
-    private static (int Priority, int Depth, string Path) PriorityKey(string path)
-    {
-        for (var i = 0; i < PriorityDirs.Length; i++)
-        {
-            if (path.StartsWith(PriorityDirs[i], StringComparison.Ordinal))
-                return (i, path.Count(c => c == '/'), path);
-        }
-
-        return (PriorityDirs.Length, path.Count(c => c == '/'), path);
-    }
 
     private static async Task<Dictionary<string, string>> FetchAllFiles(
         HttpClient client, string owner, string repo, List<string> paths)
@@ -456,21 +403,6 @@ public static class IndexRepoTool
 
         await Task.WhenAll(tasks);
         return results;
-    }
-
-    private static Dictionary<string, List<Symbol>> GroupSymbolsByFile(List<Symbol> symbols)
-    {
-        var map = new Dictionary<string, List<Symbol>>();
-        foreach (var s in symbols)
-        {
-            if (!map.TryGetValue(s.File, out var list))
-            {
-                list = [];
-                map[s.File] = list;
-            }
-            list.Add(s);
-        }
-        return map;
     }
 
     private static List<string> ParseGitignorePatterns(string? content)
@@ -528,18 +460,6 @@ public static class IndexRepoTool
         }
 
         return true;
-    }
-
-    private static string ComputeHash(string content)
-    {
-        var bytes = Encoding.UTF8.GetBytes(content);
-        var hash = SHA256.HashData(bytes);
-        return Convert.ToHexStringLower(hash);
-    }
-
-    private static string Serialize(object value)
-    {
-        return JsonSerializer.Serialize(value, JsonOptions);
     }
 
     private sealed record TreeEntry

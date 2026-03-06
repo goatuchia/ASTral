@@ -1,3 +1,5 @@
+using System.Text.Json;
+using ASTral.Models;
 using ASTral.Storage;
 
 namespace ASTral.Tools;
@@ -8,6 +10,27 @@ namespace ASTral.Tools;
 /// </summary>
 internal static class ToolUtils
 {
+    internal static readonly string[] SkipPatterns =
+    [
+        "node_modules/", "vendor/", "venv/", ".venv/", "__pycache__/",
+        "dist/", "build/", ".git/", ".tox/", ".mypy_cache/",
+        "target/", ".gradle/",
+        "test_data/", "testdata/", "fixtures/", "snapshots/",
+        "migrations/",
+        ".min.js", ".min.ts", ".bundle.js",
+        "package-lock.json", "yarn.lock", "go.sum",
+        "generated/", "proto/",
+    ];
+
+    internal static readonly string[] PriorityDirs =
+        ["src/", "lib/", "pkg/", "cmd/", "internal/"];
+
+    internal static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+    };
+
     /// <summary>
     /// Parse "owner/repo" or look up a single repo name.
     /// Returns (Owner, Name).
@@ -47,5 +70,57 @@ internal static class ToolUtils
             ".code-index");
 
         return Path.Combine(basePath, $"{owner}-{name}");
+    }
+
+    internal static bool ShouldSkipFile(string path)
+    {
+        var normalized = path.Replace('\\', '/');
+        foreach (var pattern in SkipPatterns)
+        {
+            if (pattern.EndsWith('/'))
+            {
+                if (normalized.StartsWith(pattern, StringComparison.Ordinal)
+                    || normalized.Contains("/" + pattern, StringComparison.Ordinal))
+                    return true;
+            }
+            else
+            {
+                if (normalized.Contains(pattern, StringComparison.Ordinal))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    internal static (int Priority, int Depth, string Path) PriorityKey(string path)
+    {
+        for (var i = 0; i < PriorityDirs.Length; i++)
+        {
+            if (path.StartsWith(PriorityDirs[i], StringComparison.Ordinal))
+                return (i, path.Count(c => c == '/'), path);
+        }
+
+        return (PriorityDirs.Length, path.Count(c => c == '/'), path);
+    }
+
+    internal static Dictionary<string, List<Symbol>> GroupSymbolsByFile(List<Symbol> symbols)
+    {
+        var map = new Dictionary<string, List<Symbol>>();
+        foreach (var s in symbols)
+        {
+            if (!map.TryGetValue(s.File, out var list))
+            {
+                list = [];
+                map[s.File] = list;
+            }
+            list.Add(s);
+        }
+        return map;
+    }
+
+    internal static string Serialize(object value)
+    {
+        return JsonSerializer.Serialize(value, JsonOptions);
     }
 }
