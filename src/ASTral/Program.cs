@@ -2,6 +2,7 @@ using ASTral.Configuration;
 using ASTral.Parser;
 using ASTral.Storage;
 using ASTral.Summarizer;
+using ASTral.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -34,6 +35,9 @@ builder.Services.AddSingleton(_ => new IndexStore(storagePath));
 builder.Services.AddSingleton(_ => new TokenTracker(storagePath));
 builder.Services.AddSingleton<SymbolExtractor>();
 builder.Services.AddSingleton<BatchSummarizer>();
+
+if (string.Equals(Environment.GetEnvironmentVariable("ASTRAL_WATCH"), "true", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddHostedService<FileWatcherService>();
 
 builder.Services
     .AddMcpServer()
