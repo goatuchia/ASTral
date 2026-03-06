@@ -5,6 +5,23 @@
     <RootNamespace>ASTral</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>astral</ToolCommandName>
+    <PackageId>ASTral</PackageId>
+    <Version>1.0.0</Version>
+    <Description>MCP server that indexes codebases using tree-sitter for AI agent symbol retrieval</Description>
+    <Authors>ASTral Contributors</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/phmatray/ASTral</RepositoryUrl>
+    <PackageTags>mcp;tree-sitter;code-indexing;ai;symbol-retrieval</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="0.*" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.*" />
