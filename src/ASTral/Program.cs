@@ -9,9 +9,7 @@ using Microsoft.Extensions.Logging;
 
 var config = AstralConfig.Load();
 
-if (!string.IsNullOrEmpty(config.ExtraExtensions))
-    LanguageRegistry.ApplyExtraExtensions(config.ExtraExtensions);
-LanguageRegistry.ApplyExtraExtensions();
+LanguageRegistry.ApplyExtraExtensions(config.ExtraExtensions ?? "");
 
 var builder = Host.CreateApplicationBuilder(args);
 

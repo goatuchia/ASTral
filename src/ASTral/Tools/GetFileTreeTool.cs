@@ -25,15 +25,9 @@ public static class GetFileTreeTool
     {
         var sw = Stopwatch.StartNew();
 
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         var index = store.LoadIndex(owner, name);
         if (index is null)
@@ -91,7 +85,7 @@ public static class GetFileTreeTool
             ["repo"] = $"{owner}/{name}",
             ["path_prefix"] = pathPrefix,
             ["tree"] = tree,
-            ["_meta"] = BuildMeta(elapsedMs, files.Count, tokensSaved, totalSaved),
+            ["_meta"] = BuildFileMeta(elapsedMs, files.Count, tokensSaved, totalSaved),
         };
 
         return JsonSerializer.Serialize(result);
@@ -108,14 +102,8 @@ public static class GetFileTreeTool
         var symbolCounts = new Dictionary<string, int>();
         foreach (var sym in index.Symbols)
         {
-            var file = sym.TryGetValue("file", out var fElem) ? fElem.GetString() : null;
-            if (file is null) continue;
-
-            symbolCounts[file] = symbolCounts.GetValueOrDefault(file) + 1;
-
-            var lang = sym.TryGetValue("language", out var lElem) ? lElem.GetString() : null;
-            if (lang is not null)
-                fileLanguages.TryAdd(file, lang);
+            symbolCounts[sym.File] = symbolCounts.GetValueOrDefault(sym.File) + 1;
+            fileLanguages.TryAdd(sym.File, sym.Language);
         }
 
         // Build nested dict tree
@@ -207,21 +195,11 @@ public static class GetFileTreeTool
         return result;
     }
 
-    private static Dictionary<string, object> BuildMeta(
+    private static Dictionary<string, object> BuildFileMeta(
         double elapsedMs, int fileCount, int tokensSaved, int totalSaved)
     {
-        var meta = new Dictionary<string, object>
-        {
-            ["timing_ms"] = Math.Round(elapsedMs, 1),
-            ["file_count"] = fileCount,
-            ["tokens_saved"] = tokensSaved,
-            ["total_tokens_saved"] = totalSaved,
-        };
-
-        var costAvoided = TokenTracker.CostAvoided(tokensSaved, totalSaved);
-        foreach (var (key, value) in costAvoided)
-            meta[key] = value;
-
+        var meta = ToolUtils.BuildMeta(elapsedMs, tokensSaved, totalSaved);
+        meta["file_count"] = fileCount;
         return meta;
     }
 }

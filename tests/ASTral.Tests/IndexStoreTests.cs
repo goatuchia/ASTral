@@ -59,7 +59,7 @@ public class IndexStoreTests : IDisposable
         Assert.Equal("testrepo", loaded.Name);
         Assert.Single(loaded.SourceFiles);
         Assert.Single(loaded.Symbols);
-        Assert.Equal("login", loaded.Symbols[0]["name"].GetString());
+        Assert.Equal("login", loaded.Symbols[0].Name);
     }
 
     [Fact]

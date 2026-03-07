@@ -5,8 +5,6 @@ using ASTral.Models;
 using ASTral.Storage;
 using ModelContextProtocol.Server;
 
-using static ASTral.Models.JsonElementHelpers;
-
 namespace ASTral.Tools;
 
 /// <summary>
@@ -28,16 +26,9 @@ public static class GetFileOutlineTool
     {
         var sw = Stopwatch.StartNew();
 
-        // Resolve repo
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         // Load index
         var index = store.LoadIndex(owner, name);
@@ -48,7 +39,7 @@ public static class GetFileOutlineTool
 
         // Filter symbols to this file
         var fileSymbols = index.Symbols
-            .Where(s => GetString(s, "file") == filePath)
+            .Where(s => s.File == filePath)
             .ToList();
 
         if (fileSymbols.Count == 0)
@@ -62,17 +53,14 @@ public static class GetFileOutlineTool
             });
         }
 
-        // Convert dicts to Symbol records for tree building
-        var symbolObjects = fileSymbols.Select(DictToSymbol).ToList();
-
         // Build hierarchical tree
-        var tree = SymbolNode.BuildTree(symbolObjects);
+        var tree = SymbolNode.BuildTree(fileSymbols);
 
         // Convert tree to output format
         var symbolsOutput = tree.Select(NodeToDict).ToList();
 
         // Get language from first symbol
-        var language = GetString(fileSymbols[0], "language");
+        var language = fileSymbols[0].Language;
 
         sw.Stop();
         var elapsedMs = Math.Round(sw.Elapsed.TotalMilliseconds, 1);
@@ -90,14 +78,15 @@ public static class GetFileOutlineTool
             // Ignore file access errors
         }
 
-        var responseBytes = fileSymbols.Sum(s => GetInt(s, "byte_length"));
+        var responseBytes = fileSymbols.Sum(s => s.ByteLength);
 
         var tokensSaved = TokenTracker.EstimateSavings(rawBytes, responseBytes);
         var totalSaved = tracker.RecordSaving(tokensSaved);
 
         var fileSummary = index.FileSummaries.GetValueOrDefault(filePath, "");
 
-        var costAvoided = TokenTracker.CostAvoided(tokensSaved, totalSaved);
+        var meta = ToolUtils.BuildMeta(elapsedMs, tokensSaved, totalSaved);
+        meta["symbol_count"] = symbolsOutput.Count;
 
         var result = new Dictionary<string, object>
         {
@@ -106,44 +95,10 @@ public static class GetFileOutlineTool
             ["language"] = language,
             ["file_summary"] = fileSummary,
             ["symbols"] = symbolsOutput,
-            ["_meta"] = new Dictionary<string, object>
-            {
-                ["timing_ms"] = elapsedMs,
-                ["symbol_count"] = symbolsOutput.Count,
-                ["tokens_saved"] = tokensSaved,
-                ["total_tokens_saved"] = totalSaved,
-                ["cost_avoided"] = costAvoided["cost_avoided"],
-                ["total_cost_avoided"] = costAvoided["total_cost_avoided"],
-            },
+            ["_meta"] = meta,
         };
 
         return JsonSerializer.Serialize(result);
-    }
-
-    private static Symbol DictToSymbol(Dictionary<string, JsonElement> d)
-    {
-        return new Symbol
-        {
-            Id = GetString(d, "id"),
-            File = GetString(d, "file"),
-            Name = GetString(d, "name"),
-            QualifiedName = GetString(d, "qualified_name"),
-            Kind = GetString(d, "kind"),
-            Language = GetString(d, "language"),
-            Signature = GetString(d, "signature"),
-            Docstring = GetString(d, "docstring"),
-            Summary = GetString(d, "summary"),
-            Decorators = GetStringList(d, "decorators"),
-            Keywords = GetStringList(d, "keywords"),
-            Parent = d.TryGetValue("parent", out var p) && p.ValueKind == JsonValueKind.String
-                ? p.GetString()
-                : null,
-            Line = GetInt(d, "line"),
-            EndLine = GetInt(d, "end_line"),
-            ByteOffset = GetInt(d, "byte_offset"),
-            ByteLength = GetInt(d, "byte_length"),
-            ContentHash = GetString(d, "content_hash"),
-        };
     }
 
     private static Dictionary<string, object> NodeToDict(SymbolNode node)

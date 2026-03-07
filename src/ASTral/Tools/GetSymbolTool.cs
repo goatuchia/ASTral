@@ -7,8 +7,6 @@ using ASTral.Models;
 using ASTral.Storage;
 using ModelContextProtocol.Server;
 
-using static ASTral.Models.JsonElementHelpers;
-
 namespace ASTral.Tools;
 
 /// <summary>
@@ -30,15 +28,9 @@ public static class GetSymbolTool
         var sw = Stopwatch.StartNew();
         contextLines = Math.Clamp(contextLines, 0, 50);
 
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         var index = store.LoadIndex(owner, name);
         if (index is null)
@@ -57,17 +49,16 @@ public static class GetSymbolTool
 
         if (contextLines > 0 && source is not null)
         {
-            var file = GetString(symbol, "file");
             var contentDir = store.GetContentDir(owner, name);
-            var filePath = Path.Combine(contentDir, file);
+            var filePath = Path.Combine(contentDir, symbol.File);
 
             if (File.Exists(filePath))
             {
                 try
                 {
                     var allLines = File.ReadAllText(filePath, Encoding.UTF8).Split('\n');
-                    var startLine = GetInt(symbol, "line") - 1;   // 0-indexed
-                    var endLine = GetInt(symbol, "end_line");      // exclusive
+                    var startLine = symbol.Line - 1;   // 0-indexed
+                    var endLine = symbol.EndLine;      // exclusive
 
                     var beforeStart = Math.Max(0, startLine - contextLines);
                     var afterEnd = Math.Min(allLines.Length, endLine + contextLines);
@@ -92,7 +83,7 @@ public static class GetSymbolTool
         {
             var actualHash = Convert.ToHexStringLower(
                 SHA256.HashData(Encoding.UTF8.GetBytes(source)));
-            var storedHash = GetString(symbol, "content_hash");
+            var storedHash = symbol.ContentHash;
 
             meta["content_verified"] = string.IsNullOrEmpty(storedHash)
                 ? (object)false
@@ -103,8 +94,7 @@ public static class GetSymbolTool
         var rawBytes = 0;
         try
         {
-            var file = GetString(symbol, "file");
-            var rawFilePath = Path.Combine(store.GetContentDir(owner, name), file);
+            var rawFilePath = Path.Combine(store.GetContentDir(owner, name), symbol.File);
             if (File.Exists(rawFilePath))
                 rawBytes = (int)new FileInfo(rawFilePath).Length;
         }
@@ -113,32 +103,28 @@ public static class GetSymbolTool
             // Ignore
         }
 
-        var byteLength = GetInt(symbol, "byte_length");
+        var byteLength = symbol.ByteLength;
         var tokensSaved = TokenTracker.EstimateSavings(rawBytes, byteLength);
         var totalSaved = tracker.RecordSaving(tokensSaved);
-        meta["tokens_saved"] = tokensSaved;
-        meta["total_tokens_saved"] = totalSaved;
-
-        var costAvoided = TokenTracker.CostAvoided(tokensSaved, totalSaved);
-        foreach (var (k, v) in costAvoided)
-            meta[k] = v;
 
         sw.Stop();
-        meta["timing_ms"] = Math.Round(sw.Elapsed.TotalMilliseconds, 1);
+        var baseMeta = ToolUtils.BuildMeta(sw.Elapsed.TotalMilliseconds, tokensSaved, totalSaved);
+        foreach (var (k, v) in baseMeta)
+            meta[k] = v;
 
         // Build result
         var result = new Dictionary<string, object>
         {
-            ["id"] = GetString(symbol, "id"),
-            ["kind"] = GetString(symbol, "kind"),
-            ["name"] = GetString(symbol, "name"),
-            ["file"] = GetString(symbol, "file"),
-            ["line"] = GetInt(symbol, "line"),
-            ["end_line"] = GetInt(symbol, "end_line"),
-            ["signature"] = GetString(symbol, "signature"),
-            ["decorators"] = GetStringList(symbol, "decorators"),
-            ["docstring"] = GetString(symbol, "docstring"),
-            ["content_hash"] = GetString(symbol, "content_hash"),
+            ["id"] = symbol.Id,
+            ["kind"] = symbol.Kind,
+            ["name"] = symbol.Name,
+            ["file"] = symbol.File,
+            ["line"] = symbol.Line,
+            ["end_line"] = symbol.EndLine,
+            ["signature"] = symbol.Signature,
+            ["decorators"] = symbol.Decorators,
+            ["docstring"] = symbol.Docstring,
+            ["content_hash"] = symbol.ContentHash,
             ["source"] = source ?? "",
             ["_meta"] = meta,
         };

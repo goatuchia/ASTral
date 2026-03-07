@@ -7,6 +7,7 @@ using ASTral.Parser;
 using ASTral.Security;
 using ASTral.Storage;
 using ASTral.Summarizer;
+using ASTral.Utils;
 using ModelContextProtocol.Server;
 
 namespace ASTral.Tools;
@@ -471,32 +472,12 @@ public static class IndexRepoTool
             else
             {
                 var fileName = Path.GetFileName(path);
-                if (SimpleWildcardMatch(p, fileName) || SimpleWildcardMatch(p, path))
+                if (GlobMatcher.MatchesSimpleExpression(p, fileName) || GlobMatcher.MatchesSimpleExpression(p, path))
                     return true;
             }
         }
 
         return false;
-    }
-
-    private static bool SimpleWildcardMatch(string pattern, string text)
-    {
-        if (!pattern.Contains('*'))
-            return string.Equals(pattern, text, StringComparison.Ordinal);
-
-        var parts = pattern.Split('*');
-        var idx = 0;
-        foreach (var part in parts)
-        {
-            if (string.IsNullOrEmpty(part))
-                continue;
-            var found = text.IndexOf(part, idx, StringComparison.Ordinal);
-            if (found < 0)
-                return false;
-            idx = found + part.Length;
-        }
-
-        return true;
     }
 
     private sealed record TreeEntry

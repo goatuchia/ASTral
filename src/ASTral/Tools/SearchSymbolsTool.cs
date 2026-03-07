@@ -5,8 +5,6 @@ using ASTral.Models;
 using ASTral.Storage;
 using ModelContextProtocol.Server;
 
-using static ASTral.Models.JsonElementHelpers;
-
 namespace ASTral.Tools;
 
 /// <summary>
@@ -30,64 +28,52 @@ public static class SearchSymbolsTool
         var sw = Stopwatch.StartNew();
         maxResults = Math.Clamp(maxResults, 1, 100);
 
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         var index = store.LoadIndex(owner, name);
         if (index is null)
             return JsonSerializer.Serialize(new { error = $"Repository not indexed: {owner}/{name}" });
 
         // Search with weighted scoring
-        var results = index.Search(query, kind, filePattern);
+        var scoredSearch = index.SearchWithScores(query, kind, filePattern);
 
         // Post-filter by language
         if (language is not null)
         {
-            results = results
-                .Where(s => GetString(s, "language") == language)
+            scoredSearch = scoredSearch
+                .Where(s => s.Sym.Language == language)
                 .ToList();
         }
 
-        // Build scored results and compute token savings in a single pass
-        var queryLower = query.ToLowerInvariant();
-        var queryWords = new HashSet<string>(
-            queryLower.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-
+        // Build results and compute token savings in a single pass
         var scoredResults = new List<object>();
         var rawBytes = 0;
         var responseBytes = 0;
         var seenFiles = new HashSet<string>();
         var contentDir = store.GetContentDir(owner, name);
 
-        foreach (var sym in results.Take(maxResults))
+        foreach (var (score, sym) in scoredSearch.Take(maxResults))
         {
-            var score = CodeIndex.ScoreSymbol(sym, queryLower, queryWords);
             scoredResults.Add(new
             {
-                id = GetString(sym, "id"),
-                kind = GetString(sym, "kind"),
-                name = GetString(sym, "name"),
-                file = GetString(sym, "file"),
-                line = GetInt(sym, "line"),
-                signature = GetString(sym, "signature"),
-                summary = GetString(sym, "summary"),
+                id = sym.Id,
+                kind = sym.Kind,
+                name = sym.Name,
+                file = sym.File,
+                line = sym.Line,
+                signature = sym.Signature,
+                summary = sym.Summary,
                 score,
             });
 
             // Token savings accounting
-            var file = GetString(sym, "file");
-            if (seenFiles.Add(file))
+            if (seenFiles.Add(sym.File))
             {
                 try
                 {
-                    rawBytes += (int)new FileInfo(Path.Combine(contentDir, file)).Length;
+                    rawBytes += (int)new FileInfo(Path.Combine(contentDir, sym.File)).Length;
                 }
                 catch
                 {
@@ -95,7 +81,7 @@ public static class SearchSymbolsTool
                 }
             }
 
-            responseBytes += GetInt(sym, "byte_length");
+            responseBytes += sym.ByteLength;
         }
 
         var tokensSaved = TokenTracker.EstimateSavings(rawBytes, responseBytes);
@@ -114,7 +100,7 @@ public static class SearchSymbolsTool
             {
                 timing_ms = Math.Round(sw.Elapsed.TotalMilliseconds, 1),
                 total_symbols = index.Symbols.Count,
-                truncated = results.Count > maxResults,
+                truncated = scoredSearch.Count > maxResults,
                 tokens_saved = tokensSaved,
                 total_tokens_saved = totalSaved,
                 cost_avoided = costs["cost_avoided"],

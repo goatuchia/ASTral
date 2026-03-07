@@ -16,15 +16,9 @@ public static class InvalidateCacheTool
         IndexStore store,
         [Description("Repository identifier (owner/repo or just repo name)")] string repo)
     {
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         var deleted = store.DeleteIndex(owner, name);
 

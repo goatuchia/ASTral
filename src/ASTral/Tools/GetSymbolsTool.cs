@@ -5,8 +5,6 @@ using ASTral.Models;
 using ASTral.Storage;
 using ModelContextProtocol.Server;
 
-using static ASTral.Models.JsonElementHelpers;
-
 namespace ASTral.Tools;
 
 /// <summary>
@@ -24,15 +22,9 @@ public static class GetSymbolsTool
     {
         var sw = Stopwatch.StartNew();
 
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         var index = store.LoadIndex(owner, name);
         if (index is null)
@@ -40,6 +32,7 @@ public static class GetSymbolsTool
 
         var symbols = new List<Dictionary<string, object>>();
         var errors = new List<Dictionary<string, string>>();
+        var resolvedSymbols = new List<(string Id, Symbol Sym)>();
 
         foreach (var symbolId in symbolIds)
         {
@@ -54,20 +47,22 @@ public static class GetSymbolsTool
                 continue;
             }
 
-            var source = store.GetSymbolContent(owner, name, symbolId);
+            resolvedSymbols.Add((symbolId, symbol));
+
+            var source = store.GetSymbolContent(index, owner, name, symbolId);
 
             symbols.Add(new Dictionary<string, object>
             {
-                ["id"] = GetString(symbol, "id"),
-                ["kind"] = GetString(symbol, "kind"),
-                ["name"] = GetString(symbol, "name"),
-                ["file"] = GetString(symbol, "file"),
-                ["line"] = GetInt(symbol, "line"),
-                ["end_line"] = GetInt(symbol, "end_line"),
-                ["signature"] = GetString(symbol, "signature"),
-                ["decorators"] = GetStringList(symbol, "decorators"),
-                ["docstring"] = GetString(symbol, "docstring"),
-                ["content_hash"] = GetString(symbol, "content_hash"),
+                ["id"] = symbol.Id,
+                ["kind"] = symbol.Kind,
+                ["name"] = symbol.Name,
+                ["file"] = symbol.File,
+                ["line"] = symbol.Line,
+                ["end_line"] = symbol.EndLine,
+                ["signature"] = symbol.Signature,
+                ["decorators"] = symbol.Decorators,
+                ["docstring"] = symbol.Docstring,
+                ["content_hash"] = symbol.ContentHash,
                 ["source"] = source ?? "",
             });
         }
@@ -77,17 +72,13 @@ public static class GetSymbolsTool
         var seenFiles = new HashSet<string>();
         var responseBytes = 0;
 
-        foreach (var symbolId in symbolIds)
+        foreach (var (_, symbol) in resolvedSymbols)
         {
-            var symbol = index.GetSymbol(symbolId);
-            if (symbol is null) continue;
-
-            var file = GetString(symbol, "file");
-            if (seenFiles.Add(file))
+            if (seenFiles.Add(symbol.File))
             {
                 try
                 {
-                    var filePath = Path.Combine(store.GetContentDir(owner, name), file);
+                    var filePath = Path.Combine(store.GetContentDir(owner, name), symbol.File);
                     if (File.Exists(filePath))
                         rawBytes += (int)new FileInfo(filePath).Length;
                 }
@@ -97,7 +88,7 @@ public static class GetSymbolsTool
                 }
             }
 
-            responseBytes += GetInt(symbol, "byte_length");
+            responseBytes += symbol.ByteLength;
         }
 
         var tokensSaved = TokenTracker.EstimateSavings(rawBytes, responseBytes);
@@ -105,17 +96,8 @@ public static class GetSymbolsTool
 
         sw.Stop();
 
-        var meta = new Dictionary<string, object>
-        {
-            ["timing_ms"] = Math.Round(sw.Elapsed.TotalMilliseconds, 1),
-            ["symbol_count"] = symbols.Count,
-            ["tokens_saved"] = tokensSaved,
-            ["total_tokens_saved"] = totalSaved,
-        };
-
-        var costAvoided = TokenTracker.CostAvoided(tokensSaved, totalSaved);
-        foreach (var (k, v) in costAvoided)
-            meta[k] = v;
+        var meta = ToolUtils.BuildMeta(sw.Elapsed.TotalMilliseconds, tokensSaved, totalSaved);
+        meta["symbol_count"] = symbols.Count;
 
         var result = new Dictionary<string, object>
         {

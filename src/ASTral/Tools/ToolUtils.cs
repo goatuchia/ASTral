@@ -59,19 +59,6 @@ internal static class ToolUtils
         return (repoParts[0], repoParts[1]);
     }
 
-    /// <summary>
-    /// Compute the content directory path for a repository.
-    /// Mirrors IndexStore.ContentDir: basePath/{owner}-{name}
-    /// </summary>
-    public static string GetContentDir(string? storagePath, string owner, string name)
-    {
-        var basePath = storagePath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".code-index");
-
-        return Path.Combine(basePath, $"{owner}-{name}");
-    }
-
     internal static bool ShouldSkipFile(string path)
     {
         var normalized = path.Replace('\\', '/');
@@ -117,6 +104,45 @@ internal static class ToolUtils
             list.Add(s);
         }
         return map;
+    }
+
+    /// <summary>
+    /// Try to resolve a repo identifier, returning an error JSON string on failure.
+    /// </summary>
+    internal static (string Owner, string Name)? ResolveRepoOrError(
+        string repo, IndexStore store, out string? errorJson)
+    {
+        try
+        {
+            var resolved = ResolveRepo(repo, store);
+            errorJson = null;
+            return resolved;
+        }
+        catch (ArgumentException ex)
+        {
+            errorJson = JsonSerializer.Serialize(new { error = ex.Message });
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Build a standard _meta dictionary with timing, token savings, and cost avoided.
+    /// </summary>
+    internal static Dictionary<string, object> BuildMeta(
+        double timingMs, int tokensSaved, int totalSaved)
+    {
+        var meta = new Dictionary<string, object>
+        {
+            ["timing_ms"] = Math.Round(timingMs, 1),
+            ["tokens_saved"] = tokensSaved,
+            ["total_tokens_saved"] = totalSaved,
+        };
+
+        var costAvoided = TokenTracker.CostAvoided(tokensSaved, totalSaved);
+        foreach (var (key, value) in costAvoided)
+            meta[key] = value;
+
+        return meta;
     }
 
     internal static string Serialize(object value)

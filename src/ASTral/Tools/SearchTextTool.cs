@@ -2,8 +2,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
-using ASTral.Models;
 using ASTral.Storage;
+using ASTral.Utils;
 using ModelContextProtocol.Server;
 
 namespace ASTral.Tools;
@@ -27,15 +27,9 @@ public static class SearchTextTool
         var sw = Stopwatch.StartNew();
         maxResults = Math.Clamp(maxResults, 1, 100);
 
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         var index = store.LoadIndex(owner, name);
         if (index is null)
@@ -46,8 +40,8 @@ public static class SearchTextTool
         if (filePattern is not null)
         {
             files = files
-                .Where(f => FileSystemName.MatchesSimpleExpression(filePattern, f, ignoreCase: true)
-                         || FileSystemName.MatchesSimpleExpression($"*/{filePattern}", f, ignoreCase: true))
+                .Where(f => GlobMatcher.MatchesSimpleExpression(filePattern, f, ignoreCase: true)
+                         || GlobMatcher.MatchesSimpleExpression($"*/{filePattern}", f, ignoreCase: true))
                 .ToList();
         }
 
@@ -119,18 +113,9 @@ public static class SearchTextTool
 
         sw.Stop();
 
-        var meta = new Dictionary<string, object>
-        {
-            ["timing_ms"] = Math.Round(sw.Elapsed.TotalMilliseconds, 1),
-            ["files_searched"] = filesSearched,
-            ["truncated"] = matches.Count >= maxResults,
-            ["tokens_saved"] = tokensSaved,
-            ["total_tokens_saved"] = totalSaved,
-        };
-
-        var costAvoided = TokenTracker.CostAvoided(tokensSaved, totalSaved);
-        foreach (var (k, v) in costAvoided)
-            meta[k] = v;
+        var meta = ToolUtils.BuildMeta(sw.Elapsed.TotalMilliseconds, tokensSaved, totalSaved);
+        meta["files_searched"] = filesSearched;
+        meta["truncated"] = matches.Count >= maxResults;
 
         var result = new Dictionary<string, object>
         {

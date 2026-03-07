@@ -1,3 +1,5 @@
+using ASTral.Utils;
+
 namespace ASTral.Security;
 
 /// <summary>
@@ -127,7 +129,8 @@ public static class SecurityValidator
 
         foreach (var pattern in SecretPatterns)
         {
-            if (SimpleGlobMatch(pattern, name) || SimpleGlobMatch(pattern, pathLower))
+            if (GlobMatcher.MatchesSimpleExpression(pattern, name, ignoreCase: true)
+                || GlobMatcher.MatchesSimpleExpression(pattern, pathLower, ignoreCase: true))
                 return true;
         }
 
@@ -261,47 +264,4 @@ public static class SecurityValidator
         return System.Text.Encoding.UTF8.GetString(data);
     }
 
-    // --- Private helpers ---
-
-    /// <summary>
-    /// Simple glob match supporting * and ? wildcards (case-insensitive).
-    /// </summary>
-    private static bool SimpleGlobMatch(string pattern, string text)
-    {
-        var pIdx = 0;
-        var tIdx = 0;
-        var starPIdx = -1;
-        var starTIdx = -1;
-
-        while (tIdx < text.Length)
-        {
-            if (pIdx < pattern.Length && (pattern[pIdx] == '?' ||
-                                          char.ToLowerInvariant(pattern[pIdx]) == char.ToLowerInvariant(text[tIdx])))
-            {
-                pIdx++;
-                tIdx++;
-            }
-            else if (pIdx < pattern.Length && pattern[pIdx] == '*')
-            {
-                starPIdx = pIdx;
-                starTIdx = tIdx;
-                pIdx++;
-            }
-            else if (starPIdx >= 0)
-            {
-                pIdx = starPIdx + 1;
-                starTIdx++;
-                tIdx = starTIdx;
-            }
-            else
-            {
-                return false;
-            }
-        }
-
-        while (pIdx < pattern.Length && pattern[pIdx] == '*')
-            pIdx++;
-
-        return pIdx == pattern.Length;
-    }
 }

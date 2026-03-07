@@ -1,40 +1,37 @@
-using System.Text.Json;
 using ASTral.Models;
 
 namespace ASTral.Tests;
 
 public class CodeIndexTests
 {
-    private static Dictionary<string, JsonElement> MakeSymbolDict(
+    private static Symbol MakeSymbol(
         string id, string name, string kind, string file,
         string signature = "", string summary = "", string docstring = "",
         List<string>? keywords = null)
     {
-        var obj = new
+        return new Symbol
         {
-            id,
-            name,
-            kind,
-            file,
-            signature,
-            summary,
-            docstring,
-            keywords = keywords ?? [],
-            qualified_name = name,
-            language = "python",
-            decorators = Array.Empty<string>(),
-            parent = (string?)null,
-            line = 1,
-            end_line = 10,
-            byte_offset = 0,
-            byte_length = 50,
-            content_hash = "",
+            Id = id,
+            Name = name,
+            Kind = kind,
+            File = file,
+            Signature = signature,
+            Summary = summary,
+            Docstring = docstring,
+            Keywords = keywords ?? [],
+            QualifiedName = name,
+            Language = "python",
+            Decorators = [],
+            Parent = null,
+            Line = 1,
+            EndLine = 10,
+            ByteOffset = 0,
+            ByteLength = 50,
+            ContentHash = "",
         };
-        var json = JsonSerializer.Serialize(obj);
-        return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
     }
 
-    private static CodeIndex MakeTestIndex(params Dictionary<string, JsonElement>[] symbols)
+    private static CodeIndex MakeTestIndex(params Symbol[] symbols)
     {
         return new CodeIndex
         {
@@ -51,19 +48,19 @@ public class CodeIndexTests
     [Fact]
     public void GetSymbol_FindsById()
     {
-        var sym = MakeSymbolDict("src/main.py::login#function", "login", "function", "src/main.py");
+        var sym = MakeSymbol("src/main.py::login#function", "login", "function", "src/main.py");
         var index = MakeTestIndex(sym);
 
         var found = index.GetSymbol("src/main.py::login#function");
 
         Assert.NotNull(found);
-        Assert.Equal("login", found["name"].GetString());
+        Assert.Equal("login", found.Name);
     }
 
     [Fact]
     public void GetSymbol_ReturnsNullForMissingId()
     {
-        var sym = MakeSymbolDict("src/main.py::login#function", "login", "function", "src/main.py");
+        var sym = MakeSymbol("src/main.py::login#function", "login", "function", "src/main.py");
         var index = MakeTestIndex(sym);
 
         var found = index.GetSymbol("nonexistent::id#function");
@@ -74,61 +71,60 @@ public class CodeIndexTests
     [Fact]
     public void Search_ReturnsScoredResults()
     {
-        var sym1 = MakeSymbolDict("s1", "login", "function", "src/main.py", signature: "def login():");
-        var sym2 = MakeSymbolDict("s2", "logout", "function", "src/main.py", signature: "def logout():");
+        var sym1 = MakeSymbol("s1", "login", "function", "src/main.py", signature: "def login():");
+        var sym2 = MakeSymbol("s2", "logout", "function", "src/main.py", signature: "def logout():");
         var index = MakeTestIndex(sym1, sym2);
 
         var results = index.Search("login");
 
         Assert.NotEmpty(results);
         // "login" should be the top result (exact name match)
-        Assert.Equal("login", results[0]["name"].GetString());
+        Assert.Equal("login", results[0].Name);
     }
 
     [Fact]
     public void Search_WithKindFilter()
     {
-        var func = MakeSymbolDict("s1", "login", "function", "src/main.py");
-        var cls = MakeSymbolDict("s2", "LoginService", "class", "src/main.py",
+        var func = MakeSymbol("s1", "login", "function", "src/main.py");
+        var cls = MakeSymbol("s2", "LoginService", "class", "src/main.py",
             summary: "login service");
         var index = MakeTestIndex(func, cls);
 
         var results = index.Search("login", kind: "class");
 
-        Assert.All(results, r => Assert.Equal("class", r["kind"].GetString()));
+        Assert.All(results, r => Assert.Equal("class", r.Kind));
     }
 
     [Fact]
     public void Search_WithFilePatternFilter()
     {
-        var sym1 = MakeSymbolDict("s1", "login", "function", "src/main.py");
-        var sym2 = MakeSymbolDict("s2", "login", "function", "tests/test_main.py");
+        var sym1 = MakeSymbol("s1", "login", "function", "src/main.py");
+        var sym2 = MakeSymbol("s2", "login", "function", "tests/test_main.py");
         var index = MakeTestIndex(sym1, sym2);
 
         var results = index.Search("login", filePattern: "src/*.py");
 
         Assert.Single(results);
-        Assert.Equal("src/main.py", results[0]["file"].GetString());
+        Assert.Equal("src/main.py", results[0].File);
     }
 
     [Fact]
     public void Search_ScoreWeighting_ExactNameMatchHigherThanContains()
     {
-        // "login" exact match should score higher than "login_handler" (contains)
-        var exact = MakeSymbolDict("s1", "login", "function", "src/a.py");
-        var contains = MakeSymbolDict("s2", "login_handler", "function", "src/b.py");
+        var exact = MakeSymbol("s1", "login", "function", "src/a.py");
+        var contains = MakeSymbol("s2", "login_handler", "function", "src/b.py");
         var index = MakeTestIndex(exact, contains);
 
         var results = index.Search("login");
 
         Assert.True(results.Count >= 2);
-        Assert.Equal("login", results[0]["name"].GetString());
+        Assert.Equal("login", results[0].Name);
     }
 
     [Fact]
     public void Search_NoResults_ReturnsEmptyList()
     {
-        var sym = MakeSymbolDict("s1", "login", "function", "src/main.py");
+        var sym = MakeSymbol("s1", "login", "function", "src/main.py");
         var index = MakeTestIndex(sym);
 
         var results = index.Search("zzzznonexistent");
