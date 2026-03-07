@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using ASTral.Models;
+using Microsoft.Extensions.Logging;
 
 namespace ASTral.Storage;
 
@@ -20,16 +21,19 @@ public sealed partial class IndexStore
     };
 
     private readonly string _basePath;
+    private readonly ILogger<IndexStore>? _logger;
 
     /// <summary>
     /// Initialize store.
     /// </summary>
     /// <param name="basePath">Base directory for storage. Defaults to ~/.code-index/</param>
-    public IndexStore(string? basePath = null)
+    /// <param name="logger">Optional logger for diagnostics.</param>
+    public IndexStore(string? basePath = null, ILogger<IndexStore>? logger = null)
     {
         _basePath = basePath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".code-index");
+        _logger = logger;
 
         Directory.CreateDirectory(_basePath);
     }
@@ -63,6 +67,8 @@ public sealed partial class IndexStore
             FileSummaries = fileSummaries ?? new Dictionary<string, string>(),
         };
 
+        _logger?.LogInformation("Saving index for {Owner}/{Name} with {SymbolCount} symbols", owner, name, symbols.Count);
+
         // Save index JSON atomically: write to temp then rename
         var indexPath = IndexPath(owner, name);
         var tmpPath = indexPath + ".tmp";
@@ -90,6 +96,7 @@ public sealed partial class IndexStore
     /// <summary>Load index from storage. Rejects incompatible versions.</summary>
     public CodeIndex? LoadIndex(string owner, string name)
     {
+        _logger?.LogInformation("Loading index for {Owner}/{Name}", owner, name);
         var indexPath = IndexPath(owner, name);
         if (!File.Exists(indexPath))
             return null;
@@ -165,6 +172,9 @@ public sealed partial class IndexStore
             .Where(fp => oldHashes[fp] != currentHashes[fp])
             .ToList();
 
+        _logger?.LogDebug("Change detection for {Owner}/{Name}: {Changed} changed, {New} new, {Deleted} deleted",
+            owner, name, changedFiles.Count, newFiles.Count, deletedFiles.Count);
+
         return (changedFiles, newFiles, deletedFiles);
     }
 
@@ -181,6 +191,8 @@ public sealed partial class IndexStore
         string gitHead = "",
         Dictionary<string, string>? fileSummaries = null)
     {
+        _logger?.LogInformation("Incremental save for {Owner}/{Name}", owner, name);
+
         var index = LoadIndex(owner, name);
         if (index is null) return null;
 
@@ -294,6 +306,7 @@ public sealed partial class IndexStore
     /// <summary>Delete an index and its raw files.</summary>
     public bool DeleteIndex(string owner, string name)
     {
+        _logger?.LogInformation("Deleted index for {Owner}/{Name}", owner, name);
         var indexPath = IndexPath(owner, name);
         var contentDir = ContentDir(owner, name);
         var deleted = false;

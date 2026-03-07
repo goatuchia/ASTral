@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
 using MAB.DotIgnore;
 using ASTral.Models;
@@ -26,7 +27,8 @@ public static class IndexFolderTool
         [Description("Use AI for symbol summaries")] bool useAiSummaries = true,
         [Description("Additional gitignore-style patterns to exclude")] string[]? extraIgnorePatterns = null,
         [Description("Whether to follow symlinks")] bool followSymlinks = false,
-        [Description("Only re-index changed files")] bool incremental = true)
+        [Description("Only re-index changed files")] bool incremental = true,
+        [Description("Force full re-index, bypassing incremental cache")] bool force = false)
     {
         // Resolve folder path (support ~ expansion)
         var folderPath = Path.GetFullPath(
@@ -90,16 +92,18 @@ public static class IndexFolderTool
                 currentFiles[relPath] = content;
             }
 
+            var totalSw = Stopwatch.StartNew();
+
             // Incremental path
-            if (incremental && store.LoadIndex(owner, repoName) is not null)
+            if (!force && incremental && store.LoadIndex(owner, repoName) is not null)
             {
                 return await HandleIncremental(store, extractor, summarizer, owner, repoName,
-                    folderPath, currentFiles, skipCounts, warnings, useAiSummaries);
+                    folderPath, currentFiles, skipCounts, warnings, useAiSummaries, totalSw);
             }
 
             // Full index path
             return await HandleFullIndex(store, extractor, summarizer, owner, repoName,
-                folderPath, currentFiles, skipCounts, warnings, maxFiles, useAiSummaries);
+                folderPath, currentFiles, skipCounts, warnings, maxFiles, useAiSummaries, totalSw);
         }
         catch (Exception ex)
         {
@@ -119,7 +123,8 @@ public static class IndexFolderTool
         Dictionary<string, string> currentFiles,
         Dictionary<string, int> skipCounts,
         List<string> warnings,
-        bool useAiSummaries)
+        bool useAiSummaries,
+        Stopwatch totalSw)
     {
         var (changed, newFiles, deleted) = store.DetectChanges(owner, repoName, currentFiles);
 
@@ -134,6 +139,7 @@ public static class IndexFolderTool
                 changed = 0,
                 @new = 0,
                 deleted = 0,
+                total_time_ms = totalSw.ElapsedMilliseconds,
             });
         }
 
@@ -144,6 +150,7 @@ public static class IndexFolderTool
         var rawFilesSubset = new Dictionary<string, string>();
         var incrementalNoSymbols = new List<string>();
 
+        var parseSw = Stopwatch.StartNew();
         foreach (var relPath in filesToParse)
         {
             var content = currentFiles[relPath];
@@ -166,6 +173,8 @@ public static class IndexFolderTool
                 warnings.Add($"Failed to parse {relPath}: {ex.Message}");
             }
         }
+        parseSw.Stop();
+        var parseTimeMs = parseSw.ElapsedMilliseconds;
 
         newSymbols = await summarizer.SummarizeSymbols(newSymbols, useAiSummaries);
 
@@ -174,6 +183,7 @@ public static class IndexFolderTool
 
         var gitHead = IndexStore.GetGitHead(folderPath) ?? "";
 
+        var saveSw = Stopwatch.StartNew();
         var updated = store.IncrementalSave(
             owner: owner,
             name: repoName,
@@ -185,6 +195,10 @@ public static class IndexFolderTool
             languages: new Dictionary<string, int>(),
             gitHead: gitHead,
             fileSummaries: incrFileSummaries);
+        saveSw.Stop();
+        var saveTimeMs = saveSw.ElapsedMilliseconds;
+
+        totalSw.Stop();
 
         var result = new Dictionary<string, object?>
         {
@@ -200,6 +214,9 @@ public static class IndexFolderTool
             ["discovery_skip_counts"] = skipCounts,
             ["no_symbols_count"] = incrementalNoSymbols.Count,
             ["no_symbols_files"] = incrementalNoSymbols.Take(50).ToList(),
+            ["parse_time_ms"] = parseTimeMs,
+            ["save_time_ms"] = saveTimeMs,
+            ["total_time_ms"] = totalSw.ElapsedMilliseconds,
         };
 
         if (warnings.Count > 0)
@@ -221,7 +238,8 @@ public static class IndexFolderTool
         Dictionary<string, int> skipCounts,
         List<string> warnings,
         int maxFiles,
-        bool useAiSummaries)
+        bool useAiSummaries,
+        Stopwatch totalSw)
     {
         var allSymbols = new List<Symbol>();
         var languages = new Dictionary<string, int>();
@@ -229,6 +247,7 @@ public static class IndexFolderTool
         var parsedFiles = new List<string>();
         var noSymbolsFiles = new List<string>();
 
+        var parseSw = Stopwatch.StartNew();
         foreach (var (relPath, content) in currentFiles)
         {
             var language = LanguageRegistry.GetLanguageForFile(relPath);
@@ -256,6 +275,8 @@ public static class IndexFolderTool
                 warnings.Add($"Failed to parse {relPath}: {ex.Message}");
             }
         }
+        parseSw.Stop();
+        var parseTimeMs = parseSw.ElapsedMilliseconds;
 
         if (allSymbols.Count == 0)
             return ToolUtils.Serialize(new { success = false, error = "No symbols extracted from files" });
@@ -271,6 +292,7 @@ public static class IndexFolderTool
             kv => kv.Key,
             kv => Symbol.ComputeContentHash(Encoding.UTF8.GetBytes(kv.Value)));
 
+        var saveSw = Stopwatch.StartNew();
         store.SaveIndex(
             owner: owner,
             name: repoName,
@@ -280,8 +302,12 @@ public static class IndexFolderTool
             languages: languages,
             fileHashes: fileHashes,
             fileSummaries: fileSummaries);
+        saveSw.Stop();
+        var saveTimeMs = saveSw.ElapsedMilliseconds;
 
         var savedIndex = store.LoadIndex(owner, repoName);
+
+        totalSw.Stop();
 
         var result = new Dictionary<string, object?>
         {
@@ -291,12 +317,16 @@ public static class IndexFolderTool
             ["indexed_at"] = savedIndex?.IndexedAt ?? "",
             ["file_count"] = parsedFiles.Count,
             ["symbol_count"] = allSymbols.Count,
+            ["skipped"] = noSymbolsFiles.Count,
             ["file_summary_count"] = fileSummaries.Values.Count(v => !string.IsNullOrEmpty(v)),
             ["languages"] = languages,
             ["files"] = parsedFiles.Take(20).ToList(),
             ["discovery_skip_counts"] = skipCounts,
             ["no_symbols_count"] = noSymbolsFiles.Count,
             ["no_symbols_files"] = noSymbolsFiles.Take(50).ToList(),
+            ["parse_time_ms"] = parseTimeMs,
+            ["save_time_ms"] = saveTimeMs,
+            ["total_time_ms"] = totalSw.ElapsedMilliseconds,
         };
 
         if (warnings.Count > 0)

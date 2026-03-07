@@ -24,10 +24,10 @@ builder.Logging.SetMinimumLevel(
 
 var storagePath = Environment.GetEnvironmentVariable("CODE_INDEX_PATH");
 
-builder.Services.AddSingleton(_ => new IndexStore(storagePath));
+builder.Services.AddSingleton(sp => new IndexStore(storagePath, sp.GetService<ILogger<IndexStore>>()));
 builder.Services.AddSingleton(_ => new TokenTracker(storagePath));
-builder.Services.AddSingleton<SymbolExtractor>();
-builder.Services.AddSingleton<BatchSummarizer>();
+builder.Services.AddSingleton(sp => new SymbolExtractor(sp.GetService<ILogger<SymbolExtractor>>()));
+builder.Services.AddSingleton(sp => new BatchSummarizer(logger: sp.GetService<ILogger<BatchSummarizer>>()));
 
 builder.Services
     .AddMcpServer()

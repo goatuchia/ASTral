@@ -1,6 +1,7 @@
 using Anthropic;
 using Anthropic.Models.Messages;
 using ASTral.Models;
+using Microsoft.Extensions.Logging;
 
 namespace ASTral.Summarizer;
 
@@ -17,12 +18,14 @@ public sealed class BatchSummarizer
     private readonly string _model;
     private readonly int _maxTokensPerBatch;
     private readonly AnthropicClient? _client; // Anthropic client, if available
+    private readonly ILogger<BatchSummarizer>? _logger;
 
-    public BatchSummarizer(string model = "claude-haiku-4-5-20251001", int maxTokensPerBatch = 500)
+    public BatchSummarizer(string model = "claude-haiku-4-5-20251001", int maxTokensPerBatch = 500, ILogger<BatchSummarizer>? logger = null)
     {
         _model = model;
         _maxTokensPerBatch = maxTokensPerBatch;
         _client = InitClient();
+        _logger = logger;
     }
 
     /// <summary>Whether an AI client is available for Tier 2 summarization.</summary>
@@ -139,6 +142,8 @@ public sealed class BatchSummarizer
 
         if (toSummarize.Count == 0) return;
 
+        _logger?.LogInformation("Summarizing {Count} symbols with AI", toSummarize.Count);
+
         for (var i = 0; i < toSummarize.Count; i += batchSize)
         {
             var batch = toSummarize.Skip(i).Take(batchSize).ToList();
@@ -177,8 +182,9 @@ public sealed class BatchSummarizer
                     batch[i].Summary = SignatureFallback(batch[i]);
             }
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogWarning("AI summarization failed for batch: {Error}", ex.Message);
             foreach (var sym in batch)
             {
                 if (string.IsNullOrEmpty(sym.Summary))
