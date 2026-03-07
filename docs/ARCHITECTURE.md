@@ -9,37 +9,45 @@ ASTral/
 ├── README.md
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   ├── SPEC.md
-│   ├── USER_GUIDE.md
-│   ├── SECURITY.md
 │   ├── LANGUAGE_SUPPORT.md
-│   └── TOKEN_SAVINGS.md
+│   ├── SECURITY.md
+│   ├── SPEC.md
+│   ├── TOKEN_SAVINGS.md
+│   └── USER_GUIDE.md
 │
 ├── src/ASTral/
 │   ├── ASTral.csproj
 │   ├── Program.cs                      # Entry point: DI setup + MCP server bootstrap
 │   │
+│   ├── Configuration/
+│   │   └── AstralConfig.cs             # .astralrc JSON config file loading
+│   │
 │   ├── Models/
+│   │   ├── CodeIndex.cs                # Repository index: search, scoring, pattern matching
+│   │   ├── JsonElementHelpers.cs       # JSON deserialization helpers
 │   │   ├── Symbol.cs                   # Sealed record: ID generation, content hashing
-│   │   ├── SymbolNode.cs               # Hierarchical tree building for outlines
-│   │   └── CodeIndex.cs                # Repository index: search, scoring, pattern matching
+│   │   └── SymbolNode.cs               # Hierarchical tree building for outlines
 │   │
 │   ├── Parser/
-│   │   ├── LanguageRegistry.cs         # LanguageSpec registry for 15 languages
+│   │   ├── LanguageRegistry.cs         # LanguageSpec registry for 16 languages
 │   │   └── SymbolExtractor.cs          # tree-sitter AST walking + symbol extraction
+│   │
+│   ├── Security/
+│   │   └── SecurityValidator.cs        # Path traversal, symlink, secret, binary detection
+│   │
+│   ├── Services/
+│   │   └── FileWatcherService.cs       # Background file watcher for auto re-indexing
 │   │
 │   ├── Storage/
 │   │   ├── IndexStore.cs               # Save/load indexes, incremental indexing, byte-offset retrieval
 │   │   └── TokenTracker.cs             # Persistent token savings counter (~/.code-index/_savings.json)
-│   │
-│   ├── Security/
-│   │   └── SecurityValidator.cs        # Path traversal, symlink, secret, binary detection
 │   │
 │   ├── Summarizer/
 │   │   ├── BatchSummarizer.cs          # Docstring > AI > signature fallback
 │   │   └── FileSummarizer.cs           # File-level heuristic summaries
 │   │
 │   └── Tools/
+│       ├── ToolUtils.cs                # Shared tool helpers
 │       ├── IndexRepoTool.cs            # GitHub repository indexing
 │       ├── IndexFolderTool.cs          # Local folder indexing
 │       ├── ListReposTool.cs
@@ -54,12 +62,14 @@ ASTral/
 │
 └── tests/ASTral.Tests/
     ├── ASTral.Tests.csproj
-    ├── SymbolTests.cs                  # Symbol ID generation, hashing, equality
+    ├── AstralConfigTests.cs            # Config file loading, env var overrides
     ├── CodeIndexTests.cs               # Search algorithm, symbol retrieval
     ├── IndexStoreTests.cs              # Storage, incremental indexing, versioning
     ├── LanguageRegistryTests.cs        # Language spec validation
     ├── SecurityValidatorTests.cs       # Path validation, secret detection
-    └── TokenTrackerTests.cs            # Token tracking, cost calculations
+    ├── SymbolTests.cs                  # Symbol ID generation, hashing, equality
+    ├── TokenTrackerTests.cs            # Token tracking, cost calculations
+    └── ToolIntegrationTests.cs         # End-to-end tool workflow tests
 ```
 
 ---
@@ -95,7 +105,7 @@ MCP tools (discovery, search, retrieval)
 
 ## Parser Design
 
-The parser follows a **language registry pattern**. Each supported language defines a `LanguageSpec` describing how symbols are extracted from its AST.
+The parser follows a **language registry pattern**. Each of the 16 supported languages defines a `LanguageSpec` describing how symbols are extracted from its AST.
 
 ```csharp
 public record LanguageSpec(

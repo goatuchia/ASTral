@@ -13,7 +13,7 @@
     <Description>MCP server that indexes codebases using tree-sitter for AI agent symbol retrieval</Description>
     <Authors>ASTral Contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/phmatray/ASTral</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Atypical-Consulting/ASTral</RepositoryUrl>
     <PackageTags>mcp;tree-sitter;code-indexing;ai;symbol-retrieval</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

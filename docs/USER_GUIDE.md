@@ -9,8 +9,8 @@
 Build from source:
 
 ```bash
-git clone https://github.com/jgravelle/astral.git
-cd astral
+git clone https://github.com/Atypical-Consulting/ASTral.git
+cd ASTral
 dotnet build
 ```
 

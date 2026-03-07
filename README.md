@@ -235,7 +235,7 @@ astral
 ### From source
 
 ```bash
-git clone https://github.com/phmatray/ASTral.git
+git clone https://github.com/Atypical-Consulting/ASTral.git
 cd ASTral
 dotnet build
 dotnet run --project src/ASTral
