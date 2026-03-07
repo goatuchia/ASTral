@@ -174,7 +174,7 @@ Every tool response includes a `_meta` envelope with timing, token savings, and 
 
 \* `.h` is parsed as C++ first, then falls back to C when no C++ symbols are extracted.
 
-See LANGUAGE_SUPPORT.md for full semantics.
+See [Language Support](docs/LANGUAGE_SUPPORT.md) for full semantics.
 
 ---
 
@@ -188,7 +188,7 @@ Built-in protections:
 - Binary detection
 - Configurable file size limits
 
-See SECURITY.md for details.
+See [Security](docs/SECURITY.md) for details.
 
 ---
 
@@ -313,11 +313,12 @@ Set `ASTRAL_WATCH=true` to enable automatic background re-indexing when files ch
 
 ## Documentation
 
-- USER_GUIDE.md
-- ARCHITECTURE.md
-- SPEC.md
-- SECURITY.md
-- LANGUAGE_SUPPORT.md
+- [User Guide](docs/USER_GUIDE.md) — installation, configuration, workflows, and troubleshooting
+- [Architecture](docs/ARCHITECTURE.md) — project structure, data flow, and design decisions
+- [Technical Specification](docs/SPEC.md) — tools, data models, and response formats
+- [Security](docs/SECURITY.md) — path traversal, secret exclusion, and other protections
+- [Language Support](docs/LANGUAGE_SUPPORT.md) — supported languages, symbol types, and how to add new ones
+- [Token Savings](docs/TOKEN_SAVINGS.md) — benchmarks and savings methodology
 
 ---
 

@@ -7,12 +7,13 @@ ASTral/
 ├── ASTral.sln
 ├── global.json                         # .NET SDK version (10.0)
 ├── README.md
-├── ARCHITECTURE.md
-├── SPEC.md
-├── USER_GUIDE.md
-├── SECURITY.md
-├── LANGUAGE_SUPPORT.md
-├── TOKEN_SAVINGS.md
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── SPEC.md
+│   ├── USER_GUIDE.md
+│   ├── SECURITY.md
+│   ├── LANGUAGE_SUPPORT.md
+│   └── TOKEN_SAVINGS.md
 │
 ├── src/ASTral/
 │   ├── ASTral.csproj
