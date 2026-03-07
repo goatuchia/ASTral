@@ -87,4 +87,34 @@ public class TokenTrackerTests : IDisposable
     {
         Assert.Equal(0, _tracker.GetTotalSavings());
     }
+
+    [Fact]
+    public void RecordSaving_PersistsAcrossInstances()
+    {
+        _tracker.RecordSaving(100);
+
+        var tracker2 = new TokenTracker(_tempDir);
+        Assert.Equal(100, tracker2.GetTotalSavings());
+    }
+
+    [Fact]
+    public void EstimateSavings_ZeroBytes_ReturnsZero()
+    {
+        var savings = TokenTracker.EstimateSavings(0, 0);
+        Assert.Equal(0, savings);
+    }
+
+    [Fact]
+    public void CostAvoided_ZeroTokens_ReturnsZeroCosts()
+    {
+        var result = TokenTracker.CostAvoided(tokensSaved: 0, totalTokensSaved: 0);
+
+        var costAvoided = result["cost_avoided"];
+        foreach (var value in costAvoided.Values)
+            Assert.Equal(0.0, value);
+
+        var totalCostAvoided = result["total_cost_avoided"];
+        foreach (var value in totalCostAvoided.Values)
+            Assert.Equal(0.0, value);
+    }
 }

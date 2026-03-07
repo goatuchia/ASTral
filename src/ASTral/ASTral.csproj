@@ -30,4 +30,8 @@
     <PackageReference Include="Anthropic" Version="12.8.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ASTral.Tests" />
+  </ItemGroup>
+
 </Project>

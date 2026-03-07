@@ -131,4 +131,54 @@ public class CodeIndexTests
 
         Assert.Empty(results);
     }
+
+    [Fact]
+    public void SearchWithScores_WithKindFilter_FiltersResults()
+    {
+        var func = MakeSymbol("s1", "login", "function", "src/main.py");
+        var cls = MakeSymbol("s2", "LoginService", "class", "src/main.py",
+            summary: "login service");
+        var index = MakeTestIndex(func, cls);
+
+        var results = index.SearchWithScores("login", kind: "function");
+
+        Assert.All(results, r => Assert.Equal("function", r.Sym.Kind));
+    }
+
+    [Fact]
+    public void SearchWithScores_WithFilePattern_FiltersResults()
+    {
+        var sym1 = MakeSymbol("s1", "login", "function", "src/main.py");
+        var sym2 = MakeSymbol("s2", "login", "function", "tests/test_main.py");
+        var index = MakeTestIndex(sym1, sym2);
+
+        var results = index.SearchWithScores("login", filePattern: "src/*.py");
+
+        Assert.Single(results);
+        Assert.Equal("src/main.py", results[0].Sym.File);
+    }
+
+    [Fact]
+    public void SearchWithScores_NoMatch_ReturnsEmpty()
+    {
+        var sym = MakeSymbol("s1", "login", "function", "src/main.py");
+        var index = MakeTestIndex(sym);
+
+        var results = index.SearchWithScores("zzzznonexistent");
+
+        Assert.Empty(results);
+    }
+
+    [Fact]
+    public void SearchWithScores_ReturnsDescendingScoreOrder()
+    {
+        var exact = MakeSymbol("s1", "login", "function", "src/a.py");
+        var partial = MakeSymbol("s2", "login_handler", "function", "src/b.py");
+        var index = MakeTestIndex(exact, partial);
+
+        var results = index.SearchWithScores("login");
+
+        Assert.True(results.Count >= 2);
+        Assert.True(results[0].Score >= results[1].Score);
+    }
 }

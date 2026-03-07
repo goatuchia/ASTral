@@ -85,4 +85,59 @@ public class LanguageRegistryTests
                 $"Language '{lang}' is in GetAllLanguages but has no spec in Registry");
         }
     }
+
+    [Fact]
+    public void ApplyExtraExtensions_ValidMapping_AddsExtension()
+    {
+        try
+        {
+            LanguageRegistry.ApplyExtraExtensions(".vue:javascript");
+            var result = LanguageRegistry.GetLanguageForFile("app.vue");
+            Assert.Equal("javascript", result);
+        }
+        finally
+        {
+            LanguageRegistry.LanguageExtensions.Remove(".vue");
+        }
+    }
+
+    [Fact]
+    public void ApplyExtraExtensions_InvalidLanguage_IgnoresMapping()
+    {
+        var countBefore = LanguageRegistry.LanguageExtensions.Count;
+        LanguageRegistry.ApplyExtraExtensions(".xyz:nonexistent");
+        Assert.Equal(countBefore, LanguageRegistry.LanguageExtensions.Count);
+    }
+
+    [Fact]
+    public void ApplyExtraExtensions_EmptyString_DoesNothing()
+    {
+        var countBefore = LanguageRegistry.LanguageExtensions.Count;
+        LanguageRegistry.ApplyExtraExtensions("");
+        Assert.Equal(countBefore, LanguageRegistry.LanguageExtensions.Count);
+    }
+
+    [Fact]
+    public void ApplyExtraExtensions_NoColon_IgnoresEntry()
+    {
+        var countBefore = LanguageRegistry.LanguageExtensions.Count;
+        LanguageRegistry.ApplyExtraExtensions("invalid");
+        Assert.Equal(countBefore, LanguageRegistry.LanguageExtensions.Count);
+    }
+
+    [Fact]
+    public void ApplyExtraExtensions_MultipleEntries_ProcessesAll()
+    {
+        try
+        {
+            LanguageRegistry.ApplyExtraExtensions(".vue:javascript,.svelte:javascript");
+            Assert.Equal("javascript", LanguageRegistry.GetLanguageForFile("app.vue"));
+            Assert.Equal("javascript", LanguageRegistry.GetLanguageForFile("app.svelte"));
+        }
+        finally
+        {
+            LanguageRegistry.LanguageExtensions.Remove(".vue");
+            LanguageRegistry.LanguageExtensions.Remove(".svelte");
+        }
+    }
 }

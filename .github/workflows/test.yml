@@ -24,8 +24,15 @@ jobs:
       - name: Build
         run: dotnet build --no-restore
 
-      - name: Test
-        run: dotnet test --no-build --verbosity normal
+      - name: Test with coverage
+        run: dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" --settings tests/ASTral.Tests/.runsettings --results-directory ./TestResults
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: ./TestResults/**/coverage.cobertura.xml
 
   publish:
     if: startsWith(github.ref, 'refs/tags/v')

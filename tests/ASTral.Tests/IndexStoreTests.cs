@@ -183,6 +183,112 @@ public class IndexStoreTests : IDisposable
     }
 
     [Fact]
+    public void SaveIndex_WithFileSummaries_PersistsSummaries()
+    {
+        var symbol = MakeSymbol("login");
+        var rawFiles = new Dictionary<string, string> { ["src/main.py"] = "def login(): pass" };
+        var languages = new Dictionary<string, int> { ["python"] = 1 };
+        var summaries = new Dictionary<string, string> { ["src/main.py"] = "Login function" };
+
+        _store.SaveIndex("testowner", "testrepo", ["src/main.py"], [symbol], rawFiles, languages,
+            fileSummaries: summaries);
+
+        var loaded = _store.LoadIndex("testowner", "testrepo");
+        Assert.NotNull(loaded);
+        Assert.True(loaded.FileSummaries.ContainsKey("src/main.py"));
+        Assert.Equal("Login function", loaded.FileSummaries["src/main.py"]);
+    }
+
+    [Fact]
+    public void SaveIndex_WithGitHead_PersistsGitHead()
+    {
+        var symbol = MakeSymbol("login");
+        var rawFiles = new Dictionary<string, string> { ["src/main.py"] = "def login(): pass" };
+        var languages = new Dictionary<string, int> { ["python"] = 1 };
+
+        _store.SaveIndex("testowner", "testrepo", ["src/main.py"], [symbol], rawFiles, languages,
+            gitHead: "abc123");
+
+        var loaded = _store.LoadIndex("testowner", "testrepo");
+        Assert.NotNull(loaded);
+        Assert.Equal("abc123", loaded.GitHead);
+    }
+
+    [Fact]
+    public void GetContentDir_ReturnsValidPath()
+    {
+        var contentDir = _store.GetContentDir("myowner", "myrepo");
+        Assert.Contains("myowner", contentDir);
+        Assert.Contains("myrepo", contentDir);
+    }
+
+    [Fact]
+    public void GetGitHead_NonGitDir_ReturnsNull()
+    {
+        var result = IndexStore.GetGitHead(_tempDir);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void IncrementalSave_UpdatesChangedFiles()
+    {
+        var symbol = MakeSymbol("login");
+        var rawFiles = new Dictionary<string, string> { ["src/main.py"] = "def login(): pass" };
+        var languages = new Dictionary<string, int> { ["python"] = 1 };
+
+        _store.SaveIndex("testowner", "testrepo", ["src/main.py"], [symbol], rawFiles, languages);
+
+        var newSymbol = MakeSymbol("login_v2", file: "src/main.py");
+        var newRawFiles = new Dictionary<string, string> { ["src/main.py"] = "def login_v2(): pass" };
+
+        var updated = _store.IncrementalSave("testowner", "testrepo",
+            changedFiles: ["src/main.py"],
+            newFiles: [],
+            deletedFiles: [],
+            newSymbols: [newSymbol],
+            rawFiles: newRawFiles,
+            languages: languages);
+
+        Assert.NotNull(updated);
+        Assert.Contains(updated.Symbols, s => s.Name == "login_v2");
+        Assert.DoesNotContain(updated.Symbols, s => s.Name == "login");
+    }
+
+    [Fact]
+    public void GetSymbolContent_MissingFile_ReturnsNull()
+    {
+        var result = _store.GetSymbolContent("nonexistent", "repo", "fake-symbol-id");
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void LoadIndex_CorruptJson_Throws()
+    {
+        // Write corrupt JSON to the expected index file path
+        var indexPath = Path.Combine(_tempDir, "testowner-testrepo.json");
+        File.WriteAllText(indexPath, "{ this is not valid json }}}}");
+
+        Assert.ThrowsAny<System.Text.Json.JsonException>(() => _store.LoadIndex("testowner", "testrepo"));
+    }
+
+    [Fact]
+    public void ListRepos_EmptyStore_ReturnsEmptyList()
+    {
+        var emptyDir = Path.Combine(Path.GetTempPath(), "astral-empty-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(emptyDir);
+        try
+        {
+            var emptyStore = new IndexStore(emptyDir);
+            var repos = emptyStore.ListRepos();
+            Assert.Empty(repos);
+        }
+        finally
+        {
+            Directory.Delete(emptyDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void GetSymbolContent_ReadsByByteOffset()
     {
         // File.WriteAllText with Encoding.UTF8 writes a 3-byte BOM prefix.
