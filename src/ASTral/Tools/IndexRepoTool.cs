@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using ASTral.Models;
@@ -28,7 +29,8 @@ public static class IndexRepoTool
         BatchSummarizer summarizer,
         [Description("GitHub repository URL or owner/repo string")] string url,
         [Description("Use AI for symbol summaries")] bool useAiSummaries = true,
-        [Description("Only re-index changed files")] bool incremental = true)
+        [Description("Only re-index changed files")] bool incremental = true,
+        [Description("Force full re-index, bypassing incremental cache")] bool force = false)
     {
         // Parse URL
         string owner, repo;
@@ -76,8 +78,12 @@ public static class IndexRepoTool
             // Fetch all file contents concurrently
             var currentFiles = await FetchAllFiles(httpClient, owner, repo, sourceFiles);
 
+            var totalSw = Stopwatch.StartNew();
+            long parseTimeMs = 0;
+            long saveTimeMs = 0;
+
             // Incremental path
-            if (incremental && store.LoadIndex(owner, repo) is not null)
+            if (!force && incremental && store.LoadIndex(owner, repo) is not null)
             {
                 var (changed, newF, deleted) = store.DetectChanges(owner, repo, currentFiles);
 
@@ -91,6 +97,7 @@ public static class IndexRepoTool
                         changed = 0,
                         @new = 0,
                         deleted = 0,
+                        total_time_ms = totalSw.ElapsedMilliseconds,
                     });
                 }
 
@@ -100,6 +107,7 @@ public static class IndexRepoTool
                 var newSymbols = new List<Symbol>();
                 var rawFilesSubset = new Dictionary<string, string>();
 
+                var parseSw = Stopwatch.StartNew();
                 foreach (var path in filesToParse)
                 {
                     var content = currentFiles[path];
@@ -120,12 +128,15 @@ public static class IndexRepoTool
                         warnings.Add($"Failed to parse {path}");
                     }
                 }
+                parseSw.Stop();
+                parseTimeMs = parseSw.ElapsedMilliseconds;
 
                 newSymbols = await summarizer.SummarizeSymbols(newSymbols, useAiSummaries);
 
                 var incrFileSummaries = FileSummarizer.GenerateFileSummaries(
                     ToolUtils.GroupSymbolsByFile(newSymbols));
 
+                var saveSw = Stopwatch.StartNew();
                 var updated = store.IncrementalSave(
                     owner: owner,
                     name: repo,
@@ -136,6 +147,10 @@ public static class IndexRepoTool
                     rawFiles: rawFilesSubset,
                     languages: new Dictionary<string, int>(),
                     fileSummaries: incrFileSummaries);
+                saveSw.Stop();
+                saveTimeMs = saveSw.ElapsedMilliseconds;
+
+                totalSw.Stop();
 
                 var incrResult = new Dictionary<string, object>
                 {
@@ -147,6 +162,9 @@ public static class IndexRepoTool
                     ["deleted"] = deleted.Count,
                     ["symbol_count"] = updated?.Symbols.Count ?? 0,
                     ["indexed_at"] = updated?.IndexedAt ?? "",
+                    ["parse_time_ms"] = parseTimeMs,
+                    ["save_time_ms"] = saveTimeMs,
+                    ["total_time_ms"] = totalSw.ElapsedMilliseconds,
                 };
                 if (warnings.Count > 0)
                     incrResult["warnings"] = warnings;
@@ -159,7 +177,9 @@ public static class IndexRepoTool
             var languages = new Dictionary<string, int>();
             var rawFiles = new Dictionary<string, string>();
             var parsedFiles = new List<string>();
+            var skipped = 0;
 
+            var fullParseSw = Stopwatch.StartNew();
             foreach (var (path, content) in currentFiles)
             {
                 var language = LanguageRegistry.GetLanguageForFile(path);
@@ -177,12 +197,18 @@ public static class IndexRepoTool
                         rawFiles[path] = content;
                         parsedFiles.Add(path);
                     }
+                    else
+                    {
+                        skipped++;
+                    }
                 }
                 catch
                 {
                     warnings.Add($"Failed to parse {path}");
                 }
             }
+            fullParseSw.Stop();
+            parseTimeMs = fullParseSw.ElapsedMilliseconds;
 
             if (allSymbols.Count == 0)
                 return ToolUtils.Serialize(new { success = false, error = "No symbols extracted" });
@@ -200,6 +226,7 @@ public static class IndexRepoTool
                 kv => kv.Key,
                 kv => Symbol.ComputeContentHash(Encoding.UTF8.GetBytes(kv.Value)));
 
+            var fullSaveSw = Stopwatch.StartNew();
             var savedIndex = store.SaveIndex(
                 owner: owner,
                 name: repo,
@@ -209,6 +236,10 @@ public static class IndexRepoTool
                 languages: languages,
                 fileHashes: fileHashes,
                 fileSummaries: fileSummaries);
+            fullSaveSw.Stop();
+            saveTimeMs = fullSaveSw.ElapsedMilliseconds;
+
+            totalSw.Stop();
 
             var result = new Dictionary<string, object>
             {
@@ -217,9 +248,13 @@ public static class IndexRepoTool
                 ["indexed_at"] = savedIndex.IndexedAt,
                 ["file_count"] = parsedFiles.Count,
                 ["symbol_count"] = allSymbols.Count,
+                ["skipped"] = skipped,
                 ["file_summary_count"] = fileSummaries.Count(kv => !string.IsNullOrEmpty(kv.Value)),
                 ["languages"] = languages,
                 ["files"] = parsedFiles.Take(20).ToList(),
+                ["parse_time_ms"] = parseTimeMs,
+                ["save_time_ms"] = saveTimeMs,
+                ["total_time_ms"] = totalSw.ElapsedMilliseconds,
             };
 
             if (warnings.Count > 0)
