@@ -1,0 +1,83 @@
+ASTral — Structured code retrieval for AI agents
+
+This project is a .NET rewrite of jCodeMunch-MCP by J. Gravelle,
+originally available at https://github.com/jgravelle/jcodemunch-mcp.
+
+The original work is licensed under a dual-use license (see below).
+This derivative work complies with the non-commercial license terms.
+
+================================================================================
+ORIGINAL WORK
+================================================================================
+
+Copyright (c) 2026 J. Gravelle
+
+1. Non-Commercial License Grant (Free)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, merge, publish, and distribute the Software for personal,
+educational, research, hobby, or other non-commercial purposes, subject to the
+following conditions:
+
+  1. The above copyright notice and this permission notice shall be included
+     in all copies or substantial portions of the Software.
+
+  2. Any modifications made to the Software must clearly indicate that they
+     are derived from the original work, and the name of the original author
+     (J. Gravelle) must remain intact.
+
+  3. Redistributions of the Software in source code form must include a
+     prominent notice describing any modifications from the original version.
+
+2. Commercial Use
+
+Commercial use of the Software requires a separate paid commercial license
+from the author.
+
+"Commercial use" includes, but is not limited to:
+
+  - Use of the Software in a business environment
+  - Internal use within a for-profit organization
+  - Incorporation into a product or service offered for sale
+  - Use in connection with revenue generation, consulting, SaaS, hosting,
+    or fee-based services
+
+For commercial licensing inquiries, contact:
+j@gravelle.us | https://j.gravelle.us
+
+Until a commercial license is obtained, commercial use is not permitted.
+
+3. Disclaimer of Warranty
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+
+IN NO EVENT SHALL THE AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR
+OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE
+OR OTHER DEALINGS IN THE SOFTWARE.
+
+================================================================================
+DERIVATIVE WORK — MODIFICATIONS BY ATYPICAL CONSULTING
+================================================================================
+
+Copyright (c) 2026 Philippe Matray / Atypical Consulting
+
+The following modifications were made to the original jCodeMunch-MCP:
+
+  - Complete rewrite from Python to C# / .NET 10
+  - Added Kotlin language support (.kt, .kts)
+  - Added configuration file support (.astralrc)
+  - Added structured logging (Microsoft.Extensions.Logging)
+  - Added file watcher for automatic re-indexing
+  - Added force re-index parameter with timing metadata
+  - Added NuGet global tool packaging
+  - Added tool integration tests (xunit v3)
+  - Various bug fixes and performance improvements
+
+These modifications are provided under the same dual-use license terms as the
+original work (see above). Commercial use of this derivative work also requires
+a commercial license from J. Gravelle for the portions derived from the
+original jCodeMunch-MCP.
