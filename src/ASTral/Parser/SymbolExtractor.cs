@@ -1,6 +1,7 @@
 using System.Text;
 using TreeSitter;
 using ASTral.Models;
+using Microsoft.Extensions.Logging;
 
 namespace ASTral.Parser;
 
@@ -11,6 +12,13 @@ namespace ASTral.Parser;
 /// </summary>
 public sealed class SymbolExtractor
 {
+    private readonly ILogger<SymbolExtractor>? _logger;
+
+    public SymbolExtractor(ILogger<SymbolExtractor>? logger = null)
+    {
+        _logger = logger;
+    }
+
     // JS/TS variable_declarator value types that represent functions
     private static readonly HashSet<string> VariableFunctionTypes =
     [
@@ -58,6 +66,7 @@ public sealed class SymbolExtractor
         }
 
         symbols = DisambiguateOverloads(symbols);
+        _logger?.LogDebug("Extracted {Count} symbols from {FilePath}", symbols.Count, filePath);
         return symbols;
     }
 
@@ -82,8 +91,9 @@ public sealed class SymbolExtractor
             WalkTree(tree.RootNode, spec, content, sourceBytes, filename, language, symbols, null, null, 0);
             return symbols;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogWarning("Failed to parse {FilePath}: {Error}", filename, ex.Message);
             return [];
         }
     }
@@ -1065,8 +1075,9 @@ public sealed class SymbolExtractor
             WalkElixir(tree.RootNode, content, sourceBytes, filename, symbols, null);
             return symbols;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogWarning("Failed to parse {FilePath}: {Error}", filename, ex.Message);
             return [];
         }
     }
