@@ -161,6 +161,7 @@ Every tool response includes a `_meta` envelope with timing, token savings, and 
 | Go         | `.go`         | function, method, type, constant        |
 | Rust       | `.rs`         | function, type, impl, constant          |
 | Java       | `.java`       | method, class, type, constant           |
+| Kotlin     | `.kt`, `.kts` | function, class, object, type           |
 | PHP        | `.php`        | function, class, method, type, constant |
 | Dart       | `.dart`       | function, class, method, type           |
 | C#         | `.cs`         | class, method, type, record             |
@@ -203,6 +204,7 @@ See SECURITY.md for details.
 | AI Summaries | Anthropic (Claude Haiku) |
 | Hosting | Microsoft.Extensions.Hosting |
 | Testing | xunit v3 |
+| Logging | Microsoft.Extensions.Logging |
 
 ---
 
@@ -216,11 +218,94 @@ See SECURITY.md for details.
 
 ---
 
+## Installation
+
+### As a .NET global tool
+
+```bash
+dotnet tool install -g ASTral
+```
+
+Then run:
+
+```bash
+astral
+```
+
+### From source
+
+```bash
+git clone https://github.com/phmatray/ASTral.git
+cd ASTral
+dotnet build
+dotnet run --project src/ASTral
+```
+
+---
+
+## Configuration
+
+ASTral can be configured via environment variables, a `.astralrc` JSON config file, or both.
+
+### Environment variables
+
+| Variable | Description | Default |
+| -------- | ----------- | ------- |
+| `CODE_INDEX_PATH` | Storage directory for indexes | `~/.code-index/` |
+| `ASTRAL_LOG_LEVEL` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `WARNING` |
+| `ASTRAL_EXTRA_EXTENSIONS` | Extra extension mappings (e.g. `.vue:javascript,.svelte:javascript`) | — |
+| `ASTRAL_WATCH` | Enable file watcher for auto re-indexing (`true`/`false`) | `false` |
+| `GITHUB_TOKEN` | GitHub API token for `index_repo` | — |
+| `ANTHROPIC_API_KEY` | Anthropic API key for AI summaries | — |
+
+### Config file (`.astralrc`)
+
+Place a `.astralrc` JSON file in your project directory or home directory (`~/.astralrc`). Project-level values override home-level values. Environment variables override both.
+
+```json
+{
+  "storage_path": "/custom/index/path",
+  "log_level": "DEBUG",
+  "max_index_files": 5000,
+  "extra_extensions": ".vue:javascript,.svelte:javascript",
+  "excluded_patterns": ["*.generated.cs", "*.Designer.cs"]
+}
+```
+
+---
+
+## Advanced Features
+
+### Force re-indexing
+
+Both `index_repo` and `index_folder` accept a `force` parameter to bypass incremental cache and perform a full re-index:
+
+```json
+{ "path": "/path/to/project", "force": true }
+```
+
+### Timing metadata
+
+Index tool responses include timing breakdown:
+
+```json
+{
+  "parse_time_ms": 120,
+  "save_time_ms": 45,
+  "total_time_ms": 165
+}
+```
+
+### File watcher (opt-in)
+
+Set `ASTRAL_WATCH=true` to enable automatic background re-indexing when files change in indexed local folders. The watcher uses debounced detection (500ms) and a semaphore to prevent concurrent indexing.
+
+---
+
 ## Not Intended For
 
 - LSP diagnostics or completions
 - Editing workflows
-- Real-time file watching
 - Cross-repository global indexing
 - Semantic program analysis
 
