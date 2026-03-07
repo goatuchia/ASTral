@@ -7,6 +7,7 @@ using ASTral.Parser;
 using ASTral.Security;
 using ASTral.Storage;
 using ASTral.Summarizer;
+using ASTral.Services;
 using ModelContextProtocol.Server;
 
 namespace ASTral.Tools;
@@ -56,6 +57,9 @@ public static class IndexFolderTool
             // Create repo identifier from folder name
             var repoName = new DirectoryInfo(folderPath).Name;
             const string owner = "local";
+
+            // Register folder for file watcher service
+            FileWatcherService.RegisterFolder($"{owner}/{repoName}", folderPath);
 
             // Read all files to build current_files map
             var currentFiles = new Dictionary<string, string>();
