@@ -5,11 +5,11 @@ open entire files > skim thousands of irrelevant lines > repeat.
 
 **ASTral indexes a codebase once and lets agents retrieve only the exact symbols they need** — functions, classes, methods, constants — with byte-level precision.
 
-| Task                   | Traditional approach | With ASTral     |
-| ---------------------- | -------------------- | --------------- |
-| Find a function        | ~40,000 tokens       | ~200 tokens     |
-| Understand module API  | ~15,000 tokens       | ~800 tokens     |
-| Explore repo structure | ~200,000 tokens      | ~2k tokens      |
+| Task                   | Traditional approach | With ASTral |
+|------------------------|----------------------|-------------|
+| Find a function        | ~40,000 tokens       | ~200 tokens |
+| Understand module API  | ~15,000 tokens       | ~800 tokens |
+| Explore repo structure | ~200,000 tokens      | ~2k tokens  |
 
 Index once. Query cheaply forever.
 Precision context beats brute-force context.
@@ -48,7 +48,7 @@ Full source is retrieved on demand using O(1) byte-offset seeking.
 **Task:** Locate calculator / math implementations
 
 | Approach          | Tokens | What the agent had to do              |
-| ----------------- | -----: | ------------------------------------- |
+|-------------------|-------:|---------------------------------------|
 | Raw file approach | ~7,500 | Open multiple files and scan manually |
 | ASTral            | ~1,449 | `search_symbols()` > `get_symbol()`   |
 
@@ -122,7 +122,7 @@ search_text:      { "repo": "owner/repo", "query": "TODO" }
 ## Tools (11)
 
 | Tool               | Purpose                     |
-| ------------------ | --------------------------- |
+|--------------------|-----------------------------|
 | `index_repo`       | Index a GitHub repository   |
 | `index_folder`     | Index a local folder        |
 | `list_repos`       | List indexed repositories   |
@@ -153,24 +153,24 @@ Every tool response includes a `_meta` envelope with timing, token savings, and 
 
 ## Supported Languages
 
-| Language   | Extensions    | Symbol Types                            |
-| ---------- | ------------- | --------------------------------------- |
-| Python     | `.py`         | function, class, method, constant, type |
-| JavaScript | `.js`, `.jsx` | function, class, method, constant       |
-| TypeScript | `.ts`, `.tsx` | function, class, method, constant, type |
-| Go         | `.go`         | function, method, type, constant        |
-| Rust       | `.rs`         | function, type, impl, constant          |
-| Java       | `.java`       | method, class, type, constant           |
-| Kotlin     | `.kt`, `.kts` | function, class, object, type           |
-| PHP        | `.php`        | function, class, method, type, constant |
-| Dart       | `.dart`       | function, class, method, type           |
-| C#         | `.cs`         | class, method, type, record             |
-| C          | `.c`          | function, type, constant                |
-| C++        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx`, `.h`* | function, class, method, type, constant |
-| Swift      | `.swift`      | function, class, type                   |
-| Elixir     | `.ex`, `.exs` | class (module/impl), type (protocol/@type/@callback), method, function |
-| Ruby       | `.rb`, `.rake` | class, type (module), method, function |
-| Perl       | `.pl`, `.pm`  | function, class (package)               |
+| Language   | Extensions                                          | Symbol Types                                                           |
+|------------|-----------------------------------------------------|------------------------------------------------------------------------|
+| Python     | `.py`                                               | function, class, method, constant, type                                |
+| JavaScript | `.js`, `.jsx`                                       | function, class, method, constant                                      |
+| TypeScript | `.ts`, `.tsx`                                       | function, class, method, constant, type                                |
+| Go         | `.go`                                               | function, method, type, constant                                       |
+| Rust       | `.rs`                                               | function, type, impl, constant                                         |
+| Java       | `.java`                                             | method, class, type, constant                                          |
+| Kotlin     | `.kt`, `.kts`                                       | function, class, object, type                                          |
+| PHP        | `.php`                                              | function, class, method, type, constant                                |
+| Dart       | `.dart`                                             | function, class, method, type                                          |
+| C#         | `.cs`                                               | class, method, type, record                                            |
+| C          | `.c`                                                | function, type, constant                                               |
+| C++        | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hh`, `.hxx`, `.h`* | function, class, method, type, constant                                |
+| Swift      | `.swift`                                            | function, class, type                                                  |
+| Elixir     | `.ex`, `.exs`                                       | class (module/impl), type (protocol/@type/@callback), method, function |
+| Ruby       | `.rb`, `.rake`                                      | class, type (module), method, function                                 |
+| Perl       | `.pl`, `.pm`                                        | function, class (package)                                              |
 
 \* `.h` is parsed as C++ first, then falls back to C when no C++ symbols are extracted.
 
@@ -194,17 +194,17 @@ See [Security](docs/SECURITY.md) for details.
 
 ## Technology Stack
 
-| Component | Technology |
-| --------- | ---------- |
-| Runtime   | .NET 10   |
-| Language  | C#        |
-| MCP Framework | ModelContextProtocol |
-| AST Parsing | TreeSitter.DotNet |
-| .gitignore | MAB.DotIgnore |
-| AI Summaries | Anthropic (Claude Haiku) |
-| Hosting | Microsoft.Extensions.Hosting |
-| Testing | xunit v3 |
-| Logging | Microsoft.Extensions.Logging |
+| Component     | Technology                   |
+|---------------|------------------------------|
+| Runtime       | .NET 10                      |
+| Language      | C#                           |
+| MCP Framework | ModelContextProtocol         |
+| AST Parsing   | TreeSitter.DotNet            |
+| .gitignore    | MAB.DotIgnore                |
+| AI Summaries  | Anthropic (Claude Haiku)     |
+| Hosting       | Microsoft.Extensions.Hosting |
+| Testing       | xunit v3                     |
+| Logging       | Microsoft.Extensions.Logging |
 
 ---
 
@@ -249,14 +249,14 @@ ASTral can be configured via environment variables, a `.astralrc` JSON config fi
 
 ### Environment variables
 
-| Variable | Description | Default |
-| -------- | ----------- | ------- |
-| `CODE_INDEX_PATH` | Storage directory for indexes | `~/.code-index/` |
-| `ASTRAL_LOG_LEVEL` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `WARNING` |
-| `ASTRAL_EXTRA_EXTENSIONS` | Extra extension mappings (e.g. `.vue:javascript,.svelte:javascript`) | — |
-| `ASTRAL_WATCH` | Enable file watcher for auto re-indexing (`true`/`false`) | `false` |
-| `GITHUB_TOKEN` | GitHub API token for `index_repo` | — |
-| `ANTHROPIC_API_KEY` | Anthropic API key for AI summaries | — |
+| Variable                  | Description                                                          | Default          |
+|---------------------------|----------------------------------------------------------------------|------------------|
+| `CODE_INDEX_PATH`         | Storage directory for indexes                                        | `~/.code-index/` |
+| `ASTRAL_LOG_LEVEL`        | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`                       | `WARNING`        |
+| `ASTRAL_EXTRA_EXTENSIONS` | Extra extension mappings (e.g. `.vue:javascript,.svelte:javascript`) | —                |
+| `ASTRAL_WATCH`            | Enable file watcher for auto re-indexing (`true`/`false`)            | `false`          |
+| `GITHUB_TOKEN`            | GitHub API token for `index_repo`                                    | —                |
+| `ANTHROPIC_API_KEY`       | Anthropic API key for AI summaries                                   | —                |
 
 ### Config file (`.astralrc`)
 
@@ -342,7 +342,7 @@ This derivative work includes the following modifications:
 This repository is **free for non-commercial use** under the original dual-use license by J. Gravelle.
 **Commercial use requires a paid commercial license** — see [LICENSE](LICENSE) for full terms.
 
-Original work: Copyright (c) 2026 J. Gravelle
-Modifications: Copyright (c) 2026 Philippe Matray / Atypical Consulting
+- Original work: Copyright (c) 2026 J. Gravelle
+- Modifications: Copyright (c) 2026 Philippe Matray / Atypical Consulting
 
 For commercial licensing inquiries, contact: j@gravelle.us | https://j.gravelle.us

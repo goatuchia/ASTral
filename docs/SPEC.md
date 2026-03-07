@@ -26,11 +26,16 @@ Built with .NET 10 and C#, ASTral runs as an MCP server using the `ModelContextP
 ```json
 {
   "url": "owner/repo",
-  "use_ai_summaries": true
+  "use_ai_summaries": true,
+  "incremental": true,
+  "force": false
 }
 ```
 
 Fetches source via `git/trees?recursive=1` (single API call), filters through the security pipeline, parses with tree-sitter, summarizes, and saves the index plus raw files. Uses concurrent file fetching (10-thread limit).
+
+- `incremental` (default `true`): Only re-index files whose hashes have changed since the last index.
+- `force` (default `false`): Bypass incremental cache and perform a full re-index.
 
 #### `index_folder` — Index a local folder
 
@@ -38,11 +43,18 @@ Fetches source via `git/trees?recursive=1` (single API call), filters through th
 {
   "path": "/path/to/project",
   "extra_ignore_patterns": ["*.generated.*"],
-  "follow_symlinks": false
+  "follow_symlinks": false,
+  "incremental": true,
+  "force": false
 }
 ```
 
 Walks the local directory with full security controls: path traversal prevention, symlink escape protection, secret detection, binary filtering, and `.gitignore` respect (via MAB.DotIgnore).
+
+- `incremental` (default `true`): Only re-index files whose hashes have changed since the last index.
+- `force` (default `false`): Bypass incremental cache and perform a full re-index.
+
+When `ASTRAL_WATCH=true` is set, indexed local folders are registered with the background file watcher for automatic re-indexing on file changes.
 
 #### `invalidate_cache` — Delete index for a repository
 
@@ -67,11 +79,12 @@ No input required. Returns all indexed repositories with symbol counts, file cou
 ```json
 {
   "repo": "owner/repo",
-  "path_prefix": "src/"
+  "path_prefix": "src/",
+  "include_summaries": false
 }
 ```
 
-Returns a nested directory tree with per-file language and symbol count annotations.
+Returns a nested directory tree with per-file language and symbol count annotations. Set `include_summaries` to `true` to include file-level summaries.
 
 #### `get_file_outline` — Get symbols in a file
 
@@ -168,7 +181,7 @@ public sealed record Symbol
     public string Name { get; init; }            // Symbol name
     public string QualifiedName { get; init; }   // Dot-separated with parent context
     public string Kind { get; init; }            // function | class | method | constant | type
-    public string Language { get; init; }        // python | javascript | typescript | go | rust | java | php | dart | csharp | c | cpp | swift | elixir | ruby | perl
+    public string Language { get; init; }        // python | javascript | typescript | go | rust | java | kotlin | php | dart | csharp | c | cpp | swift | elixir | ruby | perl
     public string Signature { get; init; }       // Full signature line(s)
     public string ContentHash { get; init; }     // SHA-256 of source bytes (drift detection)
     public string Docstring { get; init; }
@@ -195,7 +208,7 @@ public sealed record CodeIndex
     public int IndexVersion { get; init; }                    // Schema version (current: 3)
     public string[] SourceFiles { get; init; }
     public Dictionary<string, int> Languages { get; init; }   // language > file count
-    public List<Dictionary<string, JsonElement>> Symbols { get; init; }
+    public List<Symbol> Symbols { get; init; }
     public Dictionary<string, string> FileHashes { get; init; }  // file_path > SHA-256
     public string GitHead { get; init; }                      // HEAD commit hash
     public Dictionary<string, string> FileSummaries { get; init; } // file > heuristic summary
@@ -217,7 +230,7 @@ Recursive directory walk with the full security pipeline, using MAB.DotIgnore fo
 
 ### Filtering Pipeline (Both Paths)
 
-1. **Extension filter** — must be in `LanguageExtensions` (.py, .js, .jsx, .ts, .tsx, .go, .rs, .java, .php, .dart, .cs, .c, .h, .cpp, .cc, .cxx, .hpp, .hh, .hxx, .swift, .ex, .exs, .rb, .rake, .pl, .pm)
+1. **Extension filter** — must be in `LanguageExtensions` (.py, .js, .jsx, .ts, .tsx, .go, .rs, .java, .kt, .kts, .php, .dart, .cs, .c, .h, .cpp, .cc, .cxx, .hpp, .hh, .hxx, .swift, .ex, .exs, .rb, .rake, .pl, .pm)
 2. **Skip patterns** — `node_modules/`, `vendor/`, `.git/`, `build/`, `dist/`, lock files, minified files, etc.
 3. **`.gitignore`** — respected via the `MAB.DotIgnore` library
 4. **Secret detection** — `.env`, `*.pem`, `*.key`, `*.p12`, credentials files excluded
@@ -290,3 +303,4 @@ All errors return:
 | `ASTRAL_LOG_LEVEL`         | Log verbosity (DEBUG, INFO, WARNING, ERROR)              | No       |
 | `ASTRAL_MAX_INDEX_FILES`   | Maximum files to index (default: 10,000)                 | No       |
 | `ASTRAL_EXTRA_EXTENSIONS`  | Custom extension-to-language mappings                    | No       |
+| `ASTRAL_WATCH`             | Enable file watcher for auto re-indexing (`true`/`false`) | No       |

@@ -18,6 +18,7 @@
 | Swift      | `.swift`      | tree-sitter-swift      | function, class, type                              | —             | `//` and `///` comments    | Minimal support                                                   |
 | Elixir     | `.ex`, `.exs` | tree-sitter-elixir | class (defmodule/defimpl), type (defprotocol/@type/@callback), method (def/defp/defmacro/defguard inside module), function (top-level def) | — | `@doc`/`@moduledoc` strings | Homoiconic grammar; custom walker required. `defstruct`, `use`, `import`, `alias` not indexed |
 | Ruby       | `.rb`, `.rake` | tree-sitter-ruby  | class, type (module), method (instance + `self.` singleton), function (top-level def) | — | `#` preceding comments | `attr_accessor`, constants, and `include`/`extend` not indexed |
+| Kotlin     | `.kt`, `.kts` | tree-sitter-kotlin     | function, class, object, type                      | `@annotation` | `//` and `/** */` KDoc     | Data classes and companion objects supported                      |
 | Perl       | `.pl`, `.pm`  | tree-sitter-perl       | function, class (package)                          | —             | `#` comments               | Limited support                                                   |
 
 \* `.h` uses C++ parsing first, then falls back to C when no C++ symbols are extracted.
@@ -120,6 +121,6 @@ ASTRAL_EXTRA_EXTENSIONS=".cgi:perl,.psgi:perl,.mjs:javascript"
 - Comma-separated `.ext:lang` pairs
 - Overrides built-in mappings on collision
 - Unknown languages and malformed entries are skipped with a warning
-- Valid language names: `python`, `javascript`, `typescript`, `go`, `rust`, `java`, `php`, `dart`, `csharp`, `c`, `cpp`, `swift`, `elixir`, `ruby`, `perl`
+- Valid language names: `python`, `javascript`, `typescript`, `go`, `rust`, `java`, `kotlin`, `php`, `dart`, `csharp`, `c`, `cpp`, `swift`, `elixir`, `ruby`, `perl`
 
 Set via MCP server `env` block or any environment mechanism supported by your MCP client.

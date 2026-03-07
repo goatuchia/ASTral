@@ -6,7 +6,19 @@
 
 ## Installation
 
-Build from source:
+### As a .NET global tool (recommended)
+
+```bash
+dotnet tool install -g ASTral
+```
+
+Then run:
+
+```bash
+astral
+```
+
+### From source
 
 ```bash
 git clone https://github.com/Atypical-Consulting/ASTral.git
@@ -193,6 +205,15 @@ Use `search_text` for string literals, comments, configuration values, or anythi
 
 ### Force Re-index
 
+Using the `force` parameter (preferred):
+
+```
+index_repo: { "url": "owner/repo", "force": true }
+index_folder: { "path": "/path/to/project", "force": true }
+```
+
+Or by invalidating the cache first:
+
 ```
 invalidate_cache: { "repo": "owner/repo" }
 index_repo: { "url": "owner/repo" }
@@ -204,8 +225,8 @@ index_repo: { "url": "owner/repo" }
 
 | Tool               | Purpose                       | Key Parameters                                                     |
 | ------------------ | ----------------------------- | ------------------------------------------------------------------ |
-| `index_repo`       | Index GitHub repository       | `url`, `use_ai_summaries`                                          |
-| `index_folder`     | Index local folder            | `path`, `extra_ignore_patterns`, `follow_symlinks`                 |
+| `index_repo`       | Index GitHub repository       | `url`, `use_ai_summaries`, `incremental`, `force`                  |
+| `index_folder`     | Index local folder            | `path`, `extra_ignore_patterns`, `follow_symlinks`, `incremental`, `force` |
 | `list_repos`       | List all indexed repositories | —                                                                  |
 | `get_file_tree`    | Browse file structure         | `repo`, `path_prefix`                                              |
 | `get_file_outline` | Symbols in a file             | `repo`, `file_path`                                                |
@@ -239,27 +260,39 @@ IDs are returned by `get_file_outline`, `search_symbols`, and `search_text`. Pas
 
 ---
 
-## Community Savings Meter
+## Configuration File
 
-ASTral contributes an anonymous token savings delta to a live global counter at [j.gravelle.us](https://j.gravelle.us) with each tool call. Only two values are ever sent: the tokens saved (a number) and a random anonymous install ID. No code, paths, repo names, or anything identifying is transmitted. Network failures are silent and never affect tool performance.
-
-The anonymous install ID is generated once and stored locally in `~/.code-index/_savings.json`.
-
-To disable, set `ASTRAL_SHARE_SAVINGS=0` in your MCP server env:
+ASTral supports a `.astralrc` JSON configuration file. Place it in your project directory or home directory (`~/.astralrc`). Project-level values override home-level values. Environment variables override both.
 
 ```json
 {
-  "mcpServers": {
-    "astral": {
-      "command": "dotnet",
-      "args": ["run", "--project", "/path/to/ASTral/src/ASTral"],
-      "env": {
-        "ASTRAL_SHARE_SAVINGS": "0"
-      }
-    }
-  }
+  "storage_path": "/custom/index/path",
+  "log_level": "DEBUG",
+  "max_index_files": 5000,
+  "extra_extensions": ".vue:javascript,.svelte:javascript",
+  "excluded_patterns": ["*.generated.cs", "*.Designer.cs"]
 }
 ```
+
+### Environment Variables
+
+| Variable                  | Description                                                          | Default          |
+|---------------------------|----------------------------------------------------------------------|------------------|
+| `CODE_INDEX_PATH`         | Storage directory for indexes                                        | `~/.code-index/` |
+| `ASTRAL_LOG_LEVEL`        | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`                       | `WARNING`        |
+| `ASTRAL_EXTRA_EXTENSIONS` | Extra extension mappings (e.g. `.vue:javascript,.svelte:javascript`) | —                |
+| `ASTRAL_MAX_INDEX_FILES`  | Maximum files to index                                               | `10000`          |
+| `ASTRAL_WATCH`            | Enable file watcher for auto re-indexing (`true`/`false`)            | `false`          |
+| `GITHUB_TOKEN`            | GitHub API token for `index_repo`                                    | —                |
+| `ANTHROPIC_API_KEY`       | Anthropic API key for AI summaries                                   | —                |
+
+---
+
+## File Watcher
+
+Set `ASTRAL_WATCH=true` to enable automatic background re-indexing when files change in indexed local folders. The watcher uses debounced detection (500ms) and a semaphore to prevent concurrent indexing.
+
+Once enabled, any folder indexed via `index_folder` is automatically monitored. Changes to source files trigger incremental re-indexing in the background.
 
 ---
 

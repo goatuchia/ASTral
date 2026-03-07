@@ -24,8 +24,7 @@ ASTral/
 │   │
 │   ├── Models/
 │   │   ├── CodeIndex.cs                # Repository index: search, scoring, pattern matching
-│   │   ├── JsonElementHelpers.cs       # JSON deserialization helpers
-│   │   ├── Symbol.cs                   # Sealed record: ID generation, content hashing
+│   │   ├── Symbol.cs                   # Sealed record: ID generation, content hashing, JSON attributes
 │   │   └── SymbolNode.cs               # Hierarchical tree building for outlines
 │   │
 │   ├── Parser/
@@ -46,8 +45,11 @@ ASTral/
 │   │   ├── BatchSummarizer.cs          # Docstring > AI > signature fallback
 │   │   └── FileSummarizer.cs           # File-level heuristic summaries
 │   │
+│   ├── Utils/
+│   │   └── GlobMatcher.cs             # Glob/wildcard pattern matching (* and ? support)
+│   │
 │   └── Tools/
-│       ├── ToolUtils.cs                # Shared tool helpers
+│       ├── ToolUtils.cs                # Shared tool helpers (repo resolution, meta builder)
 │       ├── IndexRepoTool.cs            # GitHub repository indexing
 │       ├── IndexFolderTool.cs          # Local folder indexing
 │       ├── ListReposTool.cs
