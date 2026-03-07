@@ -21,15 +21,9 @@ public static class GetRepoOutlineTool
     {
         var sw = Stopwatch.StartNew();
 
-        string owner, name;
-        try
-        {
-            (owner, name) = ToolUtils.ResolveRepo(repo, store);
-        }
-        catch (ArgumentException ex)
-        {
-            return JsonSerializer.Serialize(new { error = ex.Message });
-        }
+        var resolved = ToolUtils.ResolveRepoOrError(repo, store, out var resolveError);
+        if (resolved is null) return resolveError!;
+        var (owner, name) = resolved.Value;
 
         var index = store.LoadIndex(owner, name);
         if (index is null)
@@ -52,9 +46,7 @@ public static class GetRepoOutlineTool
         var kindCounts = new Dictionary<string, int>();
         foreach (var sym in index.Symbols)
         {
-            var kind = sym.TryGetValue("kind", out var k) && k.ValueKind == JsonValueKind.String
-                ? k.GetString() ?? "unknown"
-                : "unknown";
+            var kind = sym.Kind;
             kindCounts[kind] = kindCounts.GetValueOrDefault(kind) + 1;
         }
 
@@ -63,8 +55,7 @@ public static class GetRepoOutlineTool
             .ToDictionary(kv => kv.Key, kv => kv.Value);
 
         // Token savings: sum of all raw file sizes
-        var storagePath = Environment.GetEnvironmentVariable("CODE_INDEX_PATH");
-        var contentDir = ToolUtils.GetContentDir(storagePath, owner, name);
+        var contentDir = store.GetContentDir(owner, name);
 
         var rawBytes = 0L;
         var contentDirFull = Path.GetFullPath(contentDir);
@@ -88,18 +79,7 @@ public static class GetRepoOutlineTool
         var tokensSaved = TokenTracker.EstimateSavings((int)Math.Min(rawBytes, int.MaxValue), 0);
         var totalSaved = tracker.RecordSaving(tokensSaved);
 
-        var elapsedMs = Math.Round(sw.Elapsed.TotalMilliseconds, 1);
-
-        var costAvoided = TokenTracker.CostAvoided(tokensSaved, totalSaved);
-
-        var meta = new Dictionary<string, object>
-        {
-            ["timing_ms"] = elapsedMs,
-            ["tokens_saved"] = tokensSaved,
-            ["total_tokens_saved"] = totalSaved,
-        };
-        foreach (var (key, value) in costAvoided)
-            meta[key] = value;
+        var meta = ToolUtils.BuildMeta(sw.Elapsed.TotalMilliseconds, tokensSaved, totalSaved);
 
         var result = new Dictionary<string, object>
         {

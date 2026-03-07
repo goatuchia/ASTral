@@ -60,7 +60,7 @@ public sealed partial class IndexStore
             IndexedAt = DateTime.UtcNow.ToString("o"),
             SourceFiles = sourceFiles,
             Languages = languages,
-            Symbols = symbols.Select(SymbolToDict).ToList(),
+            Symbols = symbols,
             IndexVersion = CodeIndex.CurrentIndexVersion,
             FileHashes = fileHashes,
             GitHead = gitHead,
@@ -69,12 +69,7 @@ public sealed partial class IndexStore
 
         _logger?.LogInformation("Saving index for {Owner}/{Name} with {SymbolCount} symbols", owner, name, symbols.Count);
 
-        // Save index JSON atomically: write to temp then rename
-        var indexPath = IndexPath(owner, name);
-        var tmpPath = indexPath + ".tmp";
-        var json = JsonSerializer.Serialize(IndexToSerializable(index), JsonOptions);
-        File.WriteAllText(tmpPath, json, Encoding.UTF8);
-        File.Move(tmpPath, indexPath, overwrite: true);
+        WriteJsonAtomically(IndexPath(owner, name), IndexToSerializable(index));
 
         // Save raw files
         var contentDir = ContentDir(owner, name);
@@ -117,7 +112,7 @@ public sealed partial class IndexStore
             IndexedAt = root.GetProperty("indexed_at").GetString()!,
             SourceFiles = DeserializeStringList(root.GetProperty("source_files")),
             Languages = DeserializeIntDict(root.GetProperty("languages")),
-            Symbols = DeserializeSymbolList(root.GetProperty("symbols")),
+            Symbols = JsonSerializer.Deserialize<List<Symbol>>(root.GetProperty("symbols").GetRawText(), JsonOptions) ?? [],
             IndexVersion = storedVersion,
             FileHashes = root.TryGetProperty("file_hashes", out var fh) ? DeserializeStringDict(fh) : new(),
             GitHead = root.TryGetProperty("git_head", out var gh) ? gh.GetString() ?? "" : "",
@@ -129,24 +124,22 @@ public sealed partial class IndexStore
     public string? GetSymbolContent(string owner, string name, string symbolId)
     {
         var index = LoadIndex(owner, name);
-        if (index is null) return null;
+        return index is null ? null : GetSymbolContent(index, owner, name, symbolId);
+    }
 
+    /// <summary>Read symbol source using a pre-loaded index (avoids re-reading the JSON file).</summary>
+    public string? GetSymbolContent(CodeIndex index, string owner, string name, string symbolId)
+    {
         var symbol = index.GetSymbol(symbolId);
         if (symbol is null) return null;
 
-        var file = symbol.TryGetValue("file", out var fElem) ? fElem.GetString() : null;
-        if (file is null) return null;
-
-        var filePath = SafeContentPath(ContentDir(owner, name), file);
+        var filePath = SafeContentPath(ContentDir(owner, name), symbol.File);
         if (filePath is null || !File.Exists(filePath)) return null;
 
-        var byteOffset = symbol.TryGetValue("byte_offset", out var bo) ? bo.GetInt32() : 0;
-        var byteLength = symbol.TryGetValue("byte_length", out var bl) ? bl.GetInt32() : 0;
-
         using var fs = File.OpenRead(filePath);
-        fs.Seek(byteOffset, SeekOrigin.Begin);
-        var buffer = new byte[byteLength];
-        _ = fs.Read(buffer, 0, byteLength);
+        fs.Seek(symbol.ByteOffset, SeekOrigin.Begin);
+        var buffer = new byte[symbol.ByteLength];
+        _ = fs.Read(buffer, 0, symbol.ByteLength);
         return Encoding.UTF8.GetString(buffer);
     }
 
@@ -199,11 +192,11 @@ public sealed partial class IndexStore
         // Remove symbols for deleted and changed files
         var filesToRemove = new HashSet<string>(deletedFiles.Concat(changedFiles));
         var keptSymbols = index.Symbols
-            .Where(s => !s.TryGetValue("file", out var f) || !filesToRemove.Contains(f.GetString() ?? ""))
+            .Where(s => !filesToRemove.Contains(s.File))
             .ToList();
 
         // Add new symbols
-        var allSymbols = keptSymbols.Concat(newSymbols.Select(SymbolToDict)).ToList();
+        var allSymbols = keptSymbols.Concat(newSymbols).ToList();
         var recomputedLanguages = LanguagesFromSymbols(allSymbols);
         if (recomputedLanguages.Count == 0 && languages.Count > 0)
             recomputedLanguages = languages;
@@ -242,12 +235,7 @@ public sealed partial class IndexStore
             FileSummaries = mergedSummaries,
         };
 
-        // Save atomically
-        var indexPath = IndexPath(owner, name);
-        var tmpPath = indexPath + ".tmp";
-        var json = JsonSerializer.Serialize(IndexToSerializable(updated), JsonOptions);
-        File.WriteAllText(tmpPath, json, Encoding.UTF8);
-        File.Move(tmpPath, indexPath, overwrite: true);
+        WriteJsonAtomically(IndexPath(owner, name), IndexToSerializable(updated));
 
         // Update raw files
         var contentDir = ContentDir(owner, name);
@@ -353,6 +341,14 @@ public sealed partial class IndexStore
 
     // --- Private helpers ---
 
+    private static void WriteJsonAtomically(string path, object value)
+    {
+        var tmpPath = path + ".tmp";
+        var json = JsonSerializer.Serialize(value, JsonOptions);
+        File.WriteAllText(tmpPath, json, Encoding.UTF8);
+        File.Move(tmpPath, path, overwrite: true);
+    }
+
     [GeneratedRegex(@"^[A-Za-z0-9._-]+$")]
     private static partial Regex SafeComponentRegex();
 
@@ -417,32 +413,6 @@ public sealed partial class IndexStore
         return Convert.ToHexStringLower(hash);
     }
 
-    private static Dictionary<string, JsonElement> SymbolToDict(Symbol symbol)
-    {
-        var json = JsonSerializer.Serialize(new
-        {
-            id = symbol.Id,
-            file = symbol.File,
-            name = symbol.Name,
-            qualified_name = symbol.QualifiedName,
-            kind = symbol.Kind,
-            language = symbol.Language,
-            signature = symbol.Signature,
-            docstring = symbol.Docstring,
-            summary = symbol.Summary,
-            decorators = symbol.Decorators,
-            keywords = symbol.Keywords,
-            parent = symbol.Parent,
-            line = symbol.Line,
-            end_line = symbol.EndLine,
-            byte_offset = symbol.ByteOffset,
-            byte_length = symbol.ByteLength,
-            content_hash = symbol.ContentHash,
-        });
-
-        return JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
-    }
-
     private static object IndexToSerializable(CodeIndex index) => new
     {
         repo = index.Repo,
@@ -458,16 +428,12 @@ public sealed partial class IndexStore
         file_summaries = index.FileSummaries,
     };
 
-    private static Dictionary<string, int> LanguagesFromSymbols(
-        List<Dictionary<string, JsonElement>> symbols)
+    private static Dictionary<string, int> LanguagesFromSymbols(List<Symbol> symbols)
     {
         var fileLanguages = new Dictionary<string, string>();
         foreach (var sym in symbols)
         {
-            var file = sym.TryGetValue("file", out var f) ? f.GetString() : null;
-            var lang = sym.TryGetValue("language", out var l) ? l.GetString() : null;
-            if (file is not null && lang is not null)
-                fileLanguages.TryAdd(file, lang);
+            fileLanguages.TryAdd(sym.File, sym.Language);
         }
 
         var counts = new Dictionary<string, int>();
@@ -501,17 +467,4 @@ public sealed partial class IndexStore
         return dict;
     }
 
-    private static List<Dictionary<string, JsonElement>> DeserializeSymbolList(JsonElement elem)
-    {
-        var list = new List<Dictionary<string, JsonElement>>();
-        foreach (var item in elem.EnumerateArray())
-        {
-            var dict = new Dictionary<string, JsonElement>();
-            foreach (var prop in item.EnumerateObject())
-                dict[prop.Name] = prop.Value.Clone();
-            list.Add(dict);
-        }
-
-        return list;
-    }
 }
