@@ -1,0 +1,12 @@
+[package]
+name = "mikey/tutorial"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies] 
+promise = "evaera/promise@4.0.0"
+networker = "leifstout/networker@0.3.1"
+
+[server-dependencies]
+profileservice = "firebird702/profileservice@1.1.0"
